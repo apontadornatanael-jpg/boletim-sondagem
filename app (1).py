@@ -17,10 +17,13 @@ st.set_page_config(
 
 CORES_LITOLOGIA = {
     'Solo / Cobertura': '#D2B48C',
-    'Siltito / Argilito': '#A0522D',
+    'Pegmatito Litinífero': '#FF007F',  # Rosa Choque / Magenta
+    'Espodumênio': '#E6A8D7',           # Lilás/Rosa claro
+    'Lepidolita': '#DA70D6',             # Orquídea/Roxo claro
     'Quartzito': '#FFF8DC',
     'Schisto / Filito': '#708090',
     'Gnaisse / Granito': '#E6E6FA',
+    'Siltito / Argilito': '#A0522D',
     'Basalto / Diabásio': '#2F4F4F',
     'Minério de Ferro / BIF': '#8B0000',
     'Calcário / Dolomito': '#B0C4DE',
