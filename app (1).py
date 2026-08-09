@@ -15,19 +15,39 @@ st.set_page_config(
     layout="wide"
 )
 
+# DICIONÁRIO COMPLETO DE LITOLOGIAS E MINÉRIOS
 CORES_LITOLOGIA = {
+    # Cobertura & Solos
     'Solo / Cobertura': '#D2B48C',
-    'Pegmatito Litinífero': '#FF007F',  # Rosa Choque / Magenta
+    'Saprolito / Alteração': '#C4A484',
+    
+    # Minérios de Lítio & Pegmatitos
+    'Pegmatito Litinífero': '#FF1493',  # Rosa Choque
     'Espodumênio': '#E6A8D7',           # Lilás/Rosa claro
     'Lepidolita': '#DA70D6',             # Orquídea/Roxo claro
+    'Petalita': '#FFB6C1',               # Rosa Suave
+    
+    # Minérios Metálicos & Estratégicos
+    'Minério de Ouro (Au)': '#FFD700',   # Dourado
+    'Minério de Cobre (Cu)': '#B87333',   # Cobre/Bronze
+    'Minério de Ferro / BIF': '#8B0000',  # Vermelho Escuro
+    'Itabirito / Hematita': '#A52A2A',   # Castanho Red
+    'Manganês (Mn)': '#4B0082',          # Indigo / Roxo Escuro
+    'Bauxita (Alumínio)': '#CD853F',     # Terra / Laranja Escuro
+    'Níquel / Cobalto': '#20B2AA',       # Verde Mar Claro
+    'Zinco / Chumbo': '#708090',         # Cinza Slate
+    'Nióbio / Tântalo': '#4682B4',       # Azul Aço
+    'Cassiterita (Estanho)': '#8B4513',  # Marrom
+    
+    # Rochas Sedimentares & Industriais
     'Quartzito': '#FFF8DC',
-    'Schisto / Filito': '#708090',
+    'Schisto / Filito': '#696969',
     'Gnaisse / Granito': '#E6E6FA',
-    'Siltito / Argilito': '#A0522D',
+    'Siltito / Argilito': '#D2691E',
     'Basalto / Diabásio': '#2F4F4F',
-    'Minério de Ferro / BIF': '#8B0000',
     'Calcário / Dolomito': '#B0C4DE',
-    'Outro': '#808080'
+    'Fosfato / Potássio': '#9ACD32',
+    'Outro / Rocha Indefinida': '#808080'
 }
 
 if 'manobras' not in st.session_state:
