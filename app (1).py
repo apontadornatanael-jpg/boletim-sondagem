@@ -155,6 +155,17 @@ if st.session_state['manobras']:
     ws.title = "Boletim de Sondagem"
     ws.views.sheetView[0].showGridLines = True
 
+    # AJUSTES DE IMPRESSÃO / IMPRESSORA / PDF
+    ws.page_setup.orientation = ws.ORIENTATION_LANDSCAPE
+    ws.page_setup.paperSize = ws.PAPERSIZE_A4
+    ws.page_setup.fitToWidth = 1
+    ws.page_setup.fitToHeight = 0
+    ws.sheet_properties.pageSetUpPr.fitToPage = True
+    ws.page_margins.left = 0.3
+    ws.page_margins.right = 0.3
+    ws.page_margins.top = 0.4
+    ws.page_margins.bottom = 0.4
+
     font_titulo = Font(name='Calibri', size=16, bold=True, color='1F497D')
     font_subtitulo = Font(name='Calibri', size=11, bold=True, color='595959')
     font_secao = Font(name='Calibri', size=11, bold=True, color='FFFFFF')
@@ -174,6 +185,7 @@ if st.session_state['manobras']:
     align_left = Alignment(horizontal='left', vertical='center')
     align_right = Alignment(horizontal='right', vertical='center')
 
+    # CABEÇALHO SUPERIOR
     ws.merge_cells('A1:C3')
     ws['A1'] = " Espaço Reservado\n para LOGO MARCA\n da Empresa"
     ws['A1'].font = Font(name='Calibri', size=9, italic=True, color='595959')
@@ -190,6 +202,7 @@ if st.session_state['manobras']:
     ws['D3'].font = font_subtitulo
     ws['D3'].alignment = align_center
 
+    # SEÇÃO 1
     ws.merge_cells('A5:L5')
     ws['A5'] = " 1. DADOS DE GESTÃO, EQUIPE E LOCALIZAÇÃO DO FURO"
     ws['A5'].font = font_secao
@@ -216,6 +229,7 @@ if st.session_state['manobras']:
             cell_val.alignment = align_left
             cell_val.border = border_fina
 
+    # SEÇÃO 2
     ws.merge_cells('A11:L11')
     ws['A11'] = " 2. REGISTRO DE MANOBRAS E GEOTECNIA"
     ws['A11'].font = font_secao
@@ -247,7 +261,7 @@ if st.session_state['manobras']:
             elif headers[c_idx-1] in ['Rec (%)', 'RQD (%)']:
                 cell.number_format = '0.0"%"'
 
-    tot_row = start_row + len(df_manobras) + 1
+    tot_row = start_row + len(df_manobras)
     ws.cell(row=tot_row, column=1, value="TOTAL / MÉDIA").font = font_bold
     ws.cell(row=tot_row, column=4, value=df_manobras['Avanço (m)'].sum()).font = font_bold
     ws.cell(row=tot_row, column=4).number_format = '0.00'
@@ -258,7 +272,7 @@ if st.session_state['manobras']:
     ws.cell(row=tot_row, column=8, value=df_manobras['RQD (%)'].mean()).font = font_bold
     ws.cell(row=tot_row, column=8).number_format = '0.0"%"'
 
-    ass_row = tot_row + 4
+    ass_row = tot_row + 3
     ws.merge_cells(start_row=ass_row, start_column=2, end_row=ass_row, end_column=5)
     ws.cell(row=ass_row, column=2, value="________________________________________").alignment = align_center
     ws.merge_cells(start_row=ass_row+1, start_column=2, end_row=ass_row+1, end_column=5)
@@ -271,10 +285,16 @@ if st.session_state['manobras']:
     ws.cell(row=ass_row+1, column=8, value=f"Supervisor/Coordenador: {supervisor}").font = font_bold
     ws.cell(row=ass_row+1, column=8).alignment = align_center
 
+    # Ajuste dinâmico de largura de coluna
     for col in ws.columns:
-        max_len = max(len(str(cell.value or '')) for cell in col)
+        max_len = 0
+        for cell in col:
+            val = str(cell.value or '')
+            if cell.coordinate in ws.merged_cells:
+                continue
+            max_len = max(max_len, len(val))
         col_letter = get_column_letter(col[0].column)
-        ws.column_dimensions[col_letter].width = max(max_len + 3, 11)
+        ws.column_dimensions[col_letter].width = max(max_len + 4, 12)
 
     wb.save(buffer)
     
@@ -332,3 +352,7 @@ if st.session_state['manobras']:
 
     plt.tight_layout()
     st.pyplot(fig)
+
+
+
+
