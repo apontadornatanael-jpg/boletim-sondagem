@@ -2,5 +2,8 @@ streamlit
 pandas
 matplotlib
 openpyxl
-streamlit-folium
 folium
+streamlit-folium
+reportlab
+Pillow
+streamlit-drawable-canvas
