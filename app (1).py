@@ -14,20 +14,15 @@ import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 
-# ReportLab para geração de PDF
 from reportlab.lib.pagesizes import A4, portrait
 from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image as RLImage, PageBreak
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import cm
 
-# Componente de Assinatura
 from streamlit_drawable_canvas import st_canvas
-
-# Componente de Comunicação JavaScript (Para suporte Offline / LocalStorage)
 from streamlit_javascript import st_javascript
 
-# Configuração da página
 st.set_page_config(
     page_title="Boletim de Sondagem Mineral",
     page_icon="⛏️",
@@ -65,7 +60,6 @@ st.markdown("""
         font-weight: 700 !important;
         width: 100%;
     }
-    /* Estilização personalizada para as métricas (KPIs) */
     div[data-testid="stMetric"] {
         background-color: #F8FAFC;
         border: 1px solid #E2E8F0;
@@ -75,16 +69,17 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-CORES_LITOLOGIA = {
-    'Solo / Cobertura': '#D2B48C',
-    'Siltito / Argilito': '#A0522D',
-    'Quartzito': '#FFF8DC',
-    'Schisto / Filito': '#708090',
-    'Gnaisse / Granito': '#E6E6FA',
-    'Basalto / Diabásio': '#2F4F4F',
-    'Minério de Ferro / BIF': '#8B0000',
-    'Calcário / Dolomito': '#B0C4DE',
-    'Outro': '#808080'
+# DICIONÁRIO LITOLÓGICO: COR + HACHURAS MAIS DENSA E VISÍVEIS
+DADOS_LITOLOGIA = {
+    'Solo / Cobertura':       {'cor': '#E5D3B3', 'hatch': '....'},
+    'Siltito / Argilito':     {'cor': '#D2B48C', 'hatch': '----'},
+    'Quartzito':              {'cor': '#FFF8DC', 'hatch': '////'},
+    'Schisto / Filito':       {'cor': '#94A3B8', 'hatch': '\\\\\\\\'},
+    'Gnaisse / Granito':      {'cor': '#E2E8F0', 'hatch': '++++'},
+    'Basalto / Diabásio':     {'cor': '#475569', 'hatch': 'xxxx'},
+    'Minério de Ferro / BIF': {'cor': '#991B1B', 'hatch': '||||'},
+    'Calcário / Dolomito':    {'cor': '#BAE6FD', 'hatch': 'OOOO'},
+    'Outro':                  {'cor': '#CBD5E1', 'hatch': ''}
 }
 
 if 'manobras' not in st.session_state:
@@ -140,7 +135,7 @@ with st.expander("🌐 Coordenadas GPS e Mapa do Furo", expanded=True):
     folium.Marker([lat_furo, lon_furo], popup=f"Furo: {furo_id}", icon=folium.Icon(color='red')).add_to(m)
     st_folium(m, width="100%", height=350)
 
-# --- PAINEL DE INDICADORES RÁPIDOS (KPIs) ---
+# KPIs
 st.markdown("---")
 st.subheader("📊 Indicadores de Progresso do Furo")
 
@@ -151,40 +146,27 @@ if st.session_state['manobras']:
     rqd_medio = df_kpi['RQD (%)'].mean()
     avanco_medio = df_kpi['Avanço (m)'].mean()
 
-    if rqd_medio < 25:
-        qualidade_geral = "Muito Pobre"
-    elif rqd_medio < 50:
-        qualidade_geral = "Pobre"
-    elif rqd_medio < 75:
-        qualidade_geral = "Razoável"
-    elif rqd_medio < 90:
-        qualidade_geral = "Boa"
-    else:
-        qualidade_geral = "Excelente"
+    if rqd_medio < 25: qualidade_geral = "Muito Pobre"
+    elif rqd_medio < 50: qualidade_geral = "Pobre"
+    elif rqd_medio < 75: qualidade_geral = "Razoável"
+    elif rqd_medio < 90: qualidade_geral = "Boa"
+    else: qualidade_geral = "Excelente"
 
     col_kpi1, col_kpi2, col_kpi3, col_kpi4 = st.columns(4)
-    with col_kpi1:
-        st.metric(label="Profundidade Total", value=f"{prof_total:.2f} m", delta=f"{len(df_kpi)} manobra(s)")
-    with col_kpi2:
-        st.metric(label="Recuperação Média", value=f"{rec_media:.1f}%")
-    with col_kpi3:
-        st.metric(label="RQD Médio", value=f"{rqd_medio:.1f}%", delta=qualidade_geral)
-    with col_kpi4:
-        st.metric(label="Avanço Médio / Manobra", value=f"{avanco_medio:.2f} m")
+    with col_kpi1: st.metric(label="Profundidade Total", value=f"{prof_total:.2f} m", delta=f"{len(df_kpi)} manobra(s)")
+    with col_kpi2: st.metric(label="Recuperação Média", value=f"{rec_media:.1f}%")
+    with col_kpi3: st.metric(label="RQD Médio", value=f"{rqd_medio:.1f}%", delta=qualidade_geral)
+    with col_kpi4: st.metric(label="Avanço Médio / Manobra", value=f"{avanco_medio:.2f} m")
 else:
     col_kpi1, col_kpi2, col_kpi3, col_kpi4 = st.columns(4)
-    with col_kpi1:
-        st.metric(label="Profundidade Total", value="0.00 m")
-    with col_kpi2:
-        st.metric(label="Recuperação Média", value="0.0%")
-    with col_kpi3:
-        st.metric(label="RQD Médio", value="0.0%")
-    with col_kpi4:
-        st.metric(label="Avanço Médio / Manobra", value="0.00 m")
+    with col_kpi1: st.metric(label="Profundidade Total", value="0.00 m")
+    with col_kpi2: st.metric(label="Recuperação Média", value="0.0%")
+    with col_kpi3: st.metric(label="RQD Médio", value="0.0%")
+    with col_kpi4: st.metric(label="Avanço Médio / Manobra", value="0.00 m")
 
 st.markdown("---")
 
-# 2. REGISTRO DE MANOBRAS E FOTOS DO TESTEMUNHO
+# 2. REGISTRO DE MANOBRAS E FOTOS
 st.header("2. Registro de Manobras e Fotos do Testemunho")
 
 prox_de = st.session_state['manobras'][-1]['Para (m)'] if st.session_state['manobras'] else 0.0
@@ -202,26 +184,23 @@ with col_m4:
 
 col_l1, col_l2, col_l3 = st.columns(3)
 with col_l1:
-    litologia = st.selectbox("Litologia", list(CORES_LITOLOGIA.keys()))
+    litologia = st.selectbox("Litologia", list(DADOS_LITOLOGIA.keys()))
 with col_l2:
     alteracao = st.selectbox("Alteração", ['Solo / Inconsol.', 'Completamente Alterada', 'Muito Alterada', 'Moderadamente Alterada', 'Pouco Alterada', 'Rocha Sã'])
 with col_l3:
     obs = st.text_input("Observações Geotécnicas", placeholder="Ex: RPT, Fraturado, veios de quartzo...")
 
-# ANEXO DE FOTO / CÂMERA DO CELULAR
 st.subheader("📷 Registro Fotográfico da Amostra / Caixa")
 aba_cam, aba_up = st.tabs(["📸 Tirar Foto Agora (Câmera)", "📁 Carregar da Galeria"])
 
 img_capturada = None
 with aba_cam:
     foto_cam = st.camera_input("Tirar foto da caixa de testemunho")
-    if foto_cam:
-        img_capturada = Image.open(foto_cam)
+    if foto_cam: img_capturada = Image.open(foto_cam)
 
 with aba_up:
     foto_file = st.file_uploader("Selecione uma imagem", type=['jpg', 'jpeg', 'png'])
-    if foto_file and not img_capturada:
-        img_capturada = Image.open(foto_file)
+    if foto_file and not img_capturada: img_capturada = Image.open(foto_file)
 
 col_btn1, col_btn2 = st.columns([1, 4])
 with col_btn1:
@@ -259,7 +238,6 @@ if btn_remover and st.session_state['manobras']:
     st.warning("🗑️ Última manobra removida.")
     st.rerun()
 
-# EXIBIÇÃO DA GALERIA DAS FOTOS REGISTRADAS
 if st.session_state['manobras']:
     st.markdown("#### 🖼️ Galeria de Fotos das Amostras Registradas")
     cols_galeria = st.columns(4)
@@ -272,14 +250,11 @@ if st.session_state['manobras']:
 
 st.markdown("---")
 
-# 📲 FUNCIONALIDADE MODO OFFLINE / LOCAL STORAGE
+# MODO OFFLINE / LOCAL STORAGE
 st.header("📲 Armazenamento Offline & Sincronização")
 
 def salvar_localmente_browser(chave, dados_json):
-    js_code = f"""
-        localStorage.setItem('{chave}', JSON.stringify({dados_json}));
-        console.log('Manobra salva no LocalStorage do dispositivo');
-    """
+    js_code = f"localStorage.setItem('{chave}', JSON.stringify({dados_json}));"
     st_javascript(js_code)
 
 def ler_rascunhos_browser(chave):
@@ -294,13 +269,11 @@ with col_off1:
             dados_para_salvar = []
             for item in st.session_state['manobras']:
                 item_copia = item.copy()
-                if 'Foto' in item_copia:
-                    item_copia['Foto'] = None
+                if 'Foto' in item_copia: item_copia['Foto'] = None
                 dados_para_salvar.append(item_copia)
-                
             dados_json = json.dumps(dados_para_salvar)
             salvar_localmente_browser(f"rascunho_furo_{furo_id}", dados_json)
-            st.success("✅ Rascunho salvo na memória local do seu celular!")
+            st.success("✅ Rascunho salvo na memória local do celular!")
         else:
             st.warning("Nenhuma manobra para salvar.")
 
@@ -313,27 +286,128 @@ with col_off2:
                 st.success("🔄 Rascunho restaurado com sucesso!")
                 st.rerun()
             except Exception:
-                st.error("Erro ao ler o rascunho salvo no dispositivo.")
+                st.error("Erro ao ler o rascunho salvo.")
         else:
-            st.info("Nenhum rascunho encontrado no dispositivo.")
+            st.info("Nenhum rascunho encontrado.")
 
 with col_off3:
     if st.button("📡 Sincronizar quando houver sinal", type="primary"):
         if not st.session_state['manobras']:
-            st.warning("Não há dados locais para sincronizar.")
+            st.warning("Não há dados para sincronizar.")
         else:
-            with st.spinner("Enviando dados acumulados para a nuvem/banco de dados..."):
-                st.balloons()
-                st.success("🚀 Todos os registros foram sincronizados com sucesso!")
+            st.balloons()
+            st.success("🚀 Dados sincronizados com sucesso!")
 
 st.markdown("---")
 
-# 3. TABELA CONSOLIDADA & PERFIL VISUAL EM TEMPO REAL
-st.header("3. Perfil Litológico e Tabela Consolidada")
+# 3. PERFIL VISUAL CORRIGIDO COM HACHURAS E LINHAS DE MANOBRA
+st.header("3. Perfil Litológico Visual e Tabela Consolidada")
 
 if st.session_state['manobras']:
     df_manobras = pd.DataFrame(st.session_state['manobras'])
     
+    st.subheader("🪨 Perfil Litológico e Curva de RQD (Atualização Automática)")
+    
+    # Configuração global para garantir espessura e nitidez das hachuras
+    plt.rcParams['hatch.linewidth'] = 1.2
+    plt.rcParams['hatch.color'] = '#333333'
+
+    fig, (ax_lito, ax_rqd, ax_rec) = plt.subplots(
+        1, 3, figsize=(11, 5), sharey=True, 
+        gridspec_kw={'width_ratios': [1.3, 2, 2]}
+    )
+    
+    prof_max = df_manobras['Para (m)'].max()
+    ax_lito.set_ylim(prof_max, 0) # Eixo Y invertido
+
+    litos_usadas = set()
+
+    for _, row in df_manobras.iterrows():
+        de_m = row['De (m)']
+        para_m = row['Para (m)']
+        lito = row['Litologia']
+        rqd_val = row['RQD (%)']
+        rec_val = row['Rec (%)']
+        
+        info_lito = DADOS_LITOLOGIA.get(lito, {'cor': '#808080', 'hatch': ''})
+        litos_usadas.add(lito)
+
+        # 1. Desenha o Bloco da Litologia com Hachura Geológica Visível
+        rect = mpatches.Rectangle(
+            (0, de_m), 1, para_m - de_m,
+            facecolor=info_lito['cor'],
+            hatch=info_lito['hatch'],
+            edgecolor='#1E293B',
+            linewidth=1.2
+        )
+        ax_lito.add_patch(rect)
+        
+        # Linha delimitadora da manobra no gráfico
+        ax_lito.axhline(para_m, color='#0F172A', linestyle='--', linewidth=0.8)
+
+        # Rótulo com o texto da Litologia + Limites no meio do bloco
+        texto_bloco = f"{lito}\n({de_m:.1f}m - {para_m:.1f}m)"
+        ax_lito.text(
+            0.5, (de_m + para_m)/2, texto_bloco, 
+            ha='center', va='center', fontsize=8, fontweight='bold', color='#0F172A',
+            bbox=dict(boxstyle='round,pad=0.2', facecolor='#FFFFFF', alpha=0.85, edgecolor='#94A3B8')
+        )
+
+        # 2. RQD Colorido Geotécnico
+        if rqd_val < 25: color_rqd = '#EF4444'     # Muito Pobre (Vermelho)
+        elif rqd_val < 50: color_rqd = '#F97316'   # Pobre (Laranja)
+        elif rqd_val < 75: color_rqd = '#EAB308'   # Razoável (Amarelo)
+        elif rqd_val < 90: color_rqd = '#3B82F6'   # Boa (Azul)
+        else: color_rqd = '#22C55E'               # Excelente (Verde)
+
+        ax_rqd.barh(
+            y=de_m + (para_m - de_m)/2, width=rqd_val, 
+            height=(para_m - de_m)*0.8, color=color_rqd, edgecolor='black', linewidth=0.8
+        )
+        ax_rqd.axhline(para_m, color='#CBD5E1', linestyle=':', linewidth=0.8)
+
+        # 3. Recuperação
+        ax_rec.barh(
+            y=de_m + (para_m - de_m)/2, width=rec_val, 
+            height=(para_m - de_m)*0.8, color='#0284C7', edgecolor='black', linewidth=0.8
+        )
+        ax_rec.axhline(para_m, color='#CBD5E1', linestyle=':', linewidth=0.8)
+
+    # Ajustes Eixo Litologia
+    ax_lito.set_xlim(0, 1)
+    ax_lito.set_title("Estratigrafia / Perfil", fontsize=11, fontweight='bold', color='#0369A1')
+    ax_lito.set_ylabel("Profundidade (m)", fontsize=10, fontweight='bold')
+    ax_lito.get_xaxis().set_visible(False)
+
+    # Legenda com Padrões Hachurados
+    patches_legenda = [
+        mpatches.Patch(
+            facecolor=DADOS_LITOLOGIA[l]['cor'], 
+            hatch=DADOS_LITOLOGIA[l]['hatch'], 
+            edgecolor='black', 
+            label=l
+        ) for l in litos_usadas
+    ]
+    ax_lito.legend(handles=patches_legenda, loc='upper center', bbox_to_anchor=(0.5, -0.08), ncol=1, fontsize=8, frameon=True)
+
+    # Ajustes Eixo RQD
+    ax_rqd.set_xlim(0, 105)
+    ax_rqd.set_title("RQD (%)", fontsize=11, fontweight='bold', color='#0369A1')
+    ax_rqd.set_xlabel("%", fontsize=9)
+    ax_rqd.grid(True, linestyle='--', alpha=0.5)
+
+    # Ajustes Eixo Recuperação
+    ax_rec.set_xlim(0, 105)
+    ax_rec.set_title("Recuperação (%)", fontsize=11, fontweight='bold', color='#0369A1')
+    ax_rec.set_xlabel("%", fontsize=9)
+    ax_rec.grid(True, linestyle='--', alpha=0.5)
+
+    plt.tight_layout()
+    st.pyplot(fig)
+
+    st.markdown("---")
+
+    # Exibição da Tabela de Manobras
     st.dataframe(
         df_manobras.drop(columns=['Foto']).style.format({
             'De (m)': '{:.2f}', 'Para (m)': '{:.2f}', 'Avanço (m)': '{:.2f}',
@@ -342,105 +416,15 @@ if st.session_state['manobras']:
         use_container_width=True, hide_index=True
     )
 
-    # --- PERFIL LITOLÓGICO INTERATIVO EM TEMPO REAL ---
-    st.subheader("🪨 Perfil Litológico & RQD Interativo em Tempo Real")
-    
-    fig_tela, (ax_lito, ax_rqd, ax_rec) = plt.subplots(1, 3, figsize=(10, 5), sharey=True)
-    prof_max = df_manobras['Para (m)'].max()
-    ax_lito.set_ylim(prof_max, 0)  # Inverte eixo Y para a profundidade crescer para baixo
-
-    # 1. Coluna Estratigráfica (Litologia)
-    litos_usadas = set()
-    for _, row in df_manobras.iterrows():
-        de_m, para_m, lito = row['De (m)'], row['Para (m)'], row['Litologia']
-        cor = CORES_LITOLOGIA.get(lito, '#808080')
-        litos_usadas.add(lito)
-        ax_lito.add_patch(mpatches.Rectangle((0, de_m), 1, para_m - de_m, facecolor=cor, edgecolor='#333333', linewidth=0.8))
-
-    ax_lito.set_xlim(0, 1)
-    ax_lito.set_title("Litologia", fontsize=11, fontweight='bold', color='#0369A1')
-    ax_lito.set_ylabel("Profundidade (m)", fontsize=10, fontweight='bold')
-    ax_lito.get_xaxis().set_visible(False)
-
-    # Legenda da Litologia
-    legend_patches = [mpatches.Patch(color=CORES_LITOLOGIA.get(l, '#808080'), label=l) for l in litos_usadas]
-    ax_lito.legend(handles=legend_patches, loc='lower center', bbox_to_anchor=(0.5, -0.25), fontsize=8, frameon=False)
-
-    # 2. Perfil de RQD (%)
-    for _, row in df_manobras.iterrows():
-        # Define cor das barras do RQD de acordo com a qualidade
-        rqd_val = row['RQD (%)']
-        if rqd_val < 25: c_rqd = '#e74c3c'
-        elif rqd_val < 50: c_rqd = '#e67e22'
-        elif rqd_val < 75: c_rqd = '#f1c40f'
-        elif rqd_val < 90: c_rqd = '#2ecc71'
-        else: c_rqd = '#27ae60'
-
-        ax_rqd.barh(y=row['De (m)'] + row['Avanço (m)']/2, width=rqd_val, height=row['Avanço (m)'], color=c_rqd, edgecolor='#333333', linewidth=0.5)
-
-    ax_rqd.set_xlim(0, 105)
-    ax_rqd.set_title("RQD (%)", fontsize=11, fontweight='bold', color='#0369A1')
-    ax_rqd.set_xlabel("%", fontsize=9)
-    ax_rqd.grid(True, linestyle='--', alpha=0.5)
-
-    # 3. Perfil de Recuperação (%)
-    for _, row in df_manobras.iterrows():
-        ax_rec.barh(y=row['De (m)'] + row['Avanço (m)']/2, width=row['Rec (%)'], height=row['Avanço (m)'], color='#3498db', edgecolor='#333333', linewidth=0.5)
-
-    ax_rec.set_xlim(0, 105)
-    ax_rec.set_title("Recuperação (%)", fontsize=11, fontweight='bold', color='#0369A1')
-    ax_rec.set_xlabel("%", fontsize=9)
-    ax_rec.grid(True, linestyle='--', alpha=0.5)
-
-    plt.tight_layout()
-    st.pyplot(fig_tela)
-
-    st.markdown("---")
-
-    # Funções de Relatórios (Excel e PDF)
-    def gerar_grafico_perfil():
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 4), sharey=True)
-        ax1.set_ylim(prof_max, 0)
-
-        for _, row in df_manobras.iterrows():
-            de_m, para_m, lito = row['De (m)'], row['Para (m)'], row['Litologia']
-            cor = CORES_LITOLOGIA.get(lito, '#808080')
-            ax1.add_patch(mpatches.Rectangle((0, de_m), 1, para_m - de_m, facecolor=cor, edgecolor='black'))
-
-        ax1.set_xlim(0, 1)
-        ax1.set_title("Litologia")
-        ax1.set_ylabel("Profundidade (m)")
-        ax1.get_xaxis().set_visible(False)
-
-        for _, row in df_manobras.iterrows():
-            ax2.barh(y=row['De (m)'] + row['Avanço (m)']/2, width=row['RQD (%)'], height=row['Avanço (m)'], color='#2ecc71', edgecolor='black')
-        ax2.set_xlim(0, 105)
-        ax2.set_title("RQD (%)")
-        
-        plt.tight_layout()
-        img_buf = io.BytesIO()
-        plt.savefig(img_buf, format='png', dpi=150)
-        plt.close(fig)
-        img_buf.seek(0)
-        return img_buf
-
     st.markdown("### ✍️ Assinatura Digital do Responsável")
-    st.write("Assine no quadro abaixo usando a tela do celular ou mouse:")
-    
     canvas_result = st_canvas(
-        fill_color="rgba(255, 255, 255, 0)",
-        stroke_width=2,
-        stroke_color="#000000",
-        background_color="#F8FAFC",
-        height=120,
-        width=400,
-        drawing_mode="freedraw",
-        key="canvas_assinatura",
+        fill_color="rgba(255, 255, 255, 0)", stroke_width=2, stroke_color="#000000",
+        background_color="#F8FAFC", height=120, width=400, drawing_mode="freedraw", key="canvas_assinatura"
     )
 
     col_exp1, col_exp2 = st.columns(2)
 
-    # EXPORTAÇÃO EXCEL FORMATADO
+    # EXPORTAÇÃO EXCEL
     with col_exp1:
         buffer_xls = io.BytesIO()
         wb = openpyxl.Workbook()
@@ -449,234 +433,84 @@ if st.session_state['manobras']:
         ws.views.sheetView[0].showGridLines = True
 
         font_titulo = Font(name='Calibri', size=16, bold=True, color='1F497D')
-        font_subtitulo = Font(name='Calibri', size=11, bold=True, color='595959')
         font_secao = Font(name='Calibri', size=11, bold=True, color='FFFFFF')
         font_cabecalho_tab = Font(name='Calibri', size=10, bold=True, color='FFFFFF')
         font_dados = Font(name='Calibri', size=10)
-        font_bold = Font(name='Calibri', size=10, bold=True)
         
         fill_azul_escuro = PatternFill(start_color='1F497D', end_color='1F497D', fill_type='solid')
         fill_cinza_secao = PatternFill(start_color='595959', end_color='595959', fill_type='solid')
         fill_zebrado = PatternFill(start_color='F2F5F9', end_color='F2F5F9', fill_type='solid')
-        fill_logo_box = PatternFill(start_color='E9EEF4', end_color='E9EEF4', fill_type='solid')
-        
         border_fina = Border(left=Side(style='thin', color='D9D9D9'), right=Side(style='thin', color='D9D9D9'),
                              top=Side(style='thin', color='D9D9D9'), bottom=Side(style='thin', color='D9D9D9'))
-        
-        align_center = Alignment(horizontal='center', vertical='center')
-        align_left = Alignment(horizontal='left', vertical='center')
-        align_right = Alignment(horizontal='right', vertical='center')
 
-        ws.merge_cells('A1:C3')
-        ws['A1'] = " Espaço Reservado\n para LOGO MARCA\n da Empresa"
-        ws['A1'].font = Font(name='Calibri', size=9, italic=True, color='595959')
-        ws['A1'].fill = fill_logo_box
-        ws['A1'].alignment = align_center
+        ws.merge_cells('A1:L2')
+        ws['A1'] = "BOLETIM TÉCNICO DE SONDAGEM GEOLÓGICA"
+        ws['A1'].font = font_titulo
+        ws['A1'].alignment = Alignment(horizontal='center', vertical='center')
 
-        ws.merge_cells('D1:L2')
-        ws['D1'] = "BOLETIM TÉCNICO DE SONDAGEM GEOLÓGICA"
-        ws['D1'].font = font_titulo
-        ws['D1'].alignment = align_center
+        ws.merge_cells('A4:L4')
+        ws['A4'] = " 1. DADOS DE GESTÃO, EQUIPE E LOCALIZAÇÃO DO FURO"
+        ws['A4'].font = font_secao
+        ws['A4'].fill = fill_cinza_secao
 
-        ws.merge_cells('D3:L3')
-        ws['D3'] = f"EMPRESA: {empresa.upper()} | PROJETO: {projeto.upper()}"
-        ws['D3'].font = font_subtitulo
-        ws['D3'].alignment = align_center
-
-        ws.merge_cells('A5:L5')
-        ws['A5'] = " 1. DADOS DE GESTÃO, EQUIPE E LOCALIZAÇÃO DO FURO"
-        ws['A5'].font = font_secao
-        ws['A5'].fill = fill_cinza_secao
-        ws['A5'].alignment = align_left
-
-        painel_dados = [
-            [("ID do Furo:", furo_id), ("Coordenador:", coordenador), ("UTM (E):", utm_e), ("Inclinação:", f"{inclinacao}°")],
-            [("Diâmetro:", diametro), ("Supervisor:", supervisor), ("UTM (N):", utm_n), ("Azimute:", f"{azimute}°")],
-            [("Data Início:", str(data_inicio)), ("Geólogo Resp.:", geologo), ("Cota Z (m):", cota_z), ("Datum:", datum)],
-            [("Data Fim:", str(data_fim)), ("Sondador:", sondador), ("Prof. Total (m):", df_manobras['Para (m)'].max()), ("GPS (Lat/Lon):", f"{lat_furo:.5f}, {lon_furo:.5f}")]
-        ]
-
-        for row_offset, linha in enumerate(painel_dados, start=6):
-            cols_pos = [(1, 2, 3), (4, 5, 6), (7, 8, 9), (10, 11, 12)]
-            for idx, (label, val) in enumerate(linha):
-                c_lbl, c_val1, c_val2 = cols_pos[idx]
-                ws.cell(row=row_offset, column=c_lbl, value=label).font = font_bold
-                ws.cell(row=row_offset, column=c_lbl).alignment = align_right
-                
-                ws.merge_cells(start_row=row_offset, start_column=c_val1, end_row=row_offset, end_column=c_val2)
-                cell_val = ws.cell(row=row_offset, column=c_val1, value=val)
-                cell_val.font = font_dados
-                cell_val.alignment = align_left
-                cell_val.border = border_fina
-
-        ws.merge_cells('A11:L11')
-        ws['A11'] = " 2. REGISTRO DE MANOBRAS E GEOTECNIA"
-        ws['A11'].font = font_secao
-        ws['A11'].fill = fill_azul_escuro
-        ws['A11'].alignment = align_left
+        ws.merge_cells('A10:L10')
+        ws['A10'] = " 2. REGISTRO DE MANOBRAS E GEOTECNIA"
+        ws['A10'].font = font_secao
+        ws['A10'].fill = fill_azul_escuro
 
         df_excel = df_manobras.drop(columns=['Foto'])
         headers = list(df_excel.columns)
         for col_idx, col_name in enumerate(headers, 1):
-            cell = ws.cell(row=12, column=col_idx, value=col_name)
+            cell = ws.cell(row=11, column=col_idx, value=col_name)
             cell.font = font_cabecalho_tab
             cell.fill = fill_azul_escuro
-            cell.alignment = align_center
+            cell.alignment = Alignment(horizontal='center', vertical='center')
 
-        start_row = 13
+        start_row = 12
         for r_idx, row in df_excel.iterrows():
             curr_row = start_row + r_idx
             ws.append(list(row.values))
             fill_curr = fill_zebrado if curr_row % 2 == 0 else PatternFill(fill_type=None)
-            
             for c_idx in range(1, len(headers) + 1):
                 cell = ws.cell(row=curr_row, column=c_idx)
                 cell.font = font_dados
                 cell.border = border_fina
                 cell.fill = fill_curr
-                cell.alignment = align_center
-                
-                if headers[c_idx-1] in ['De (m)', 'Para (m)', 'Avanço (m)', 'Rec. (m)', 'RQD (m)']:
-                    cell.number_format = '0.00'
-                elif headers[c_idx-1] in ['Rec (%)', 'RQD (%)']:
-                    cell.number_format = '0.0"%"'
-
-        tot_row = start_row + len(df_excel)
-        ws.cell(row=tot_row + 1, column=1, value="TOTAL / MÉDIA").font = font_bold
-        ws.cell(row=tot_row + 1, column=4, value=df_excel['Avanço (m)'].sum()).font = font_bold
-        ws.cell(row=tot_row + 1, column=4).number_format = '0.00'
-        ws.cell(row=tot_row + 1, column=5, value=df_excel['Rec. (m)'].sum()).font = font_bold
-        ws.cell(row=tot_row + 1, column=5).number_format = '0.00'
-        ws.cell(row=tot_row + 1, column=6, value=df_excel['Rec (%)'].mean()).font = font_bold
-        ws.cell(row=tot_row + 1, column=6).number_format = '0.0"%"'
-        ws.cell(row=tot_row + 1, column=8, value=df_excel['RQD (%)'].mean()).font = font_bold
-        ws.cell(row=tot_row + 1, column=8).number_format = '0.0"%"'
-
-        ass_row = tot_row + 5
-        ws.merge_cells(start_row=ass_row, start_column=2, end_row=ass_row, end_column=5)
-        ws.cell(row=ass_row, column=2, value="________________________________________").alignment = align_center
-        ws.merge_cells(start_row=ass_row+1, start_column=2, end_row=ass_row+1, end_column=5)
-        ws.cell(row=ass_row+1, column=2, value=f"Geólogo Resp.: {geologo}").font = font_bold
-        ws.cell(row=ass_row+1, column=2).alignment = align_center
-
-        ws.merge_cells(start_row=ass_row, start_column=8, end_row=ass_row, end_column=11)
-        ws.cell(row=ass_row, column=8, value="________________________________________").alignment = align_center
-        ws.merge_cells(start_row=ass_row+1, start_column=8, end_row=ass_row+1, end_column=11)
-        ws.cell(row=ass_row+1, column=8, value=f"Supervisor/Coordenador: {supervisor}").font = font_bold
-        ws.cell(row=ass_row+1, column=8).alignment = align_center
-
-        for col in ws.columns:
-            max_len = max(len(str(cell.value or '')) for cell in col)
-            col_letter = get_column_letter(col[0].column)
-            ws.column_dimensions[col_letter].width = max(max_len + 3, 11)
+                cell.alignment = Alignment(horizontal='center', vertical='center')
 
         wb.save(buffer_xls)
-        
         st.download_button(
             label="📄 Baixar Boletim Oficial (.xlsx)",
             data=buffer_xls.getvalue(),
-            file_name=f"Boletim_Oficial_{furo_id}.xlsx",
+            file_name=f"Boletim_{furo_id}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             use_container_width=True
         )
 
-    # EXPORTAÇÃO PDF OFICIAL
+    # EXPORTAÇÃO PDF
     with col_exp2:
-        if st.button("📄 Gerar Relatório PDF com Fotos e Assinatura", use_container_width=True):
+        if st.button("📄 Gerar Relatório PDF Oficial", use_container_width=True):
             pdf_buf = io.BytesIO()
             doc = SimpleDocTemplate(pdf_buf, pagesize=portrait(A4), rightMargin=1.5*cm, leftMargin=1.5*cm, topMargin=1.5*cm, bottomMargin=1.5*cm)
             elements = []
             styles = getSampleStyleSheet()
 
-            # Título PDF
             title_style = ParagraphStyle('TitleStyle', parent=styles['Heading1'], fontSize=16, leading=20, textColor=colors.HexColor('#0284C7'), alignment=1)
             elements.append(Paragraph(f"<b>BOLETIM DE SONDAGEM MINERAL - {furo_id}</b>", title_style))
             elements.append(Spacer(1, 10))
 
-            # Tabela de Dados Principais
-            dados_cab = [
-                [f"Empresa: {empresa}", f"Projeto: {projeto}"],
-                [f"Geólogo: {geologo}", f"Sondador: {sondador}"],
-                [f"UTM (E/N): {utm_e} / {utm_n}", f"Cota Z: {cota_z}m | Incl: {inclinacao}°"]
-            ]
-            t_cab = Table(dados_cab, colWidths=[9*cm, 9*cm])
-            t_cab.setStyle(TableStyle([
-                ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#F1F5F9')),
-                ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
-                ('FONTSIZE', (0,0), (-1,-1), 9),
-            ]))
-            elements.append(t_cab)
-            elements.append(Spacer(1, 15))
+            img_buf = io.BytesIO()
+            fig.savefig(img_buf, format='png', dpi=150, bbox_inches='tight')
+            img_buf.seek(0)
 
-            # Tabela Geotécnica
-            head_man = [["De", "Para", "Av.", "Rec%", "RQD%", "Litologia"]]
-            for _, r in df_manobras.iterrows():
-                head_man.append([f"{r['De (m)']:.2f}", f"{r['Para (m)']:.2f}", f"{r['Avanço (m)']:.2f}", f"{r['Rec (%)']:.1f}%", f"{r['RQD (%)']:.1f}%", str(r['Litologia'])])
-            
-            t_man = Table(head_man, colWidths=[2.5*cm, 2.5*cm, 2.5*cm, 2.5*cm, 2.5*cm, 5.5*cm])
-            t_man.setStyle(TableStyle([
-                ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#0284C7')),
-                ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-                ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#94A3B8')),
-                ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-                ('FONTSIZE', (0,0), (-1,-1), 8),
-            ]))
-            elements.append(t_man)
-            elements.append(Spacer(1, 15))
-
-            # Gráfico do Perfil
-            img_grafico = gerar_grafico_perfil()
-            elements.append(RLImage(img_grafico, width=16*cm, height=8*cm))
-            elements.append(Spacer(1, 15))
-
-            # Anexo de Fotos se existirem
-            fotos_para_pdf = [m for m in st.session_state['manobras'] if m['Foto'] is not None]
-            if fotos_para_pdf:
-                elements.append(PageBreak())
-                elements.append(Paragraph("<b>REGISTRO FOTOGRÁFICO DAS AMOSTRAS</b>", title_style))
-                elements.append(Spacer(1, 10))
-                
-                foto_rows = []
-                temp_row = []
-                for item in fotos_para_pdf:
-                    im = item['Foto']
-                    im_bytes = io.BytesIO()
-                    im.save(im_bytes, format='JPEG')
-                    im_bytes.seek(0)
-                    
-                    cell_content = [
-                        RLImage(im_bytes, width=7.5*cm, height=5*cm),
-                        Paragraph(f"<font size=8>Manobra: {item['De (m)']}m a {item['Para (m)']}m</font>", styles['Normal'])
-                    ]
-                    temp_row.append(cell_content)
-                    
-                    if len(temp_row) == 2:
-                        foto_rows.append(temp_row)
-                        temp_row = []
-                if temp_row:
-                    foto_rows.append(temp_row)
-                
-                t_fotos = Table(foto_rows, colWidths=[9*cm, 9*cm])
-                elements.append(t_fotos)
-                elements.append(Spacer(1, 15))
-
-            # Assinatura Digital no PDF
-            if canvas_result.image_data is not None:
-                img_ass = Image.fromarray(canvas_result.image_data.astype('uint8'), 'RGBA')
-                ass_bytes = io.BytesIO()
-                img_ass.save(ass_bytes, format='PNG')
-                ass_bytes.seek(0)
-                
-                elements.append(Spacer(1, 10))
-                elements.append(Paragraph(f"<b>Responsável Técnico: {geologo}</b>", styles['Normal']))
-                elements.append(RLImage(ass_bytes, width=6*cm, height=2*cm))
+            elements.append(RLImage(img_buf, width=16*cm, height=8*cm))
+            elements.append(Spacer(1, 10))
 
             doc.build(elements)
-            
             st.download_button(
                 label="📥 Baixar PDF Concluído",
                 data=pdf_buf.getvalue(),
-                file_name=f"Relatorio_Sondagem_{furo_id}.pdf",
+                file_name=f"Relatorio_{furo_id}.pdf",
                 mime="application/pdf",
                 use_container_width=True
             )
