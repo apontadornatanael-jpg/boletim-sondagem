@@ -1,6 +1,6 @@
 [theme]
-primaryColor = "#2563EB"              # Azul vibrante (amigável) para botões
-backgroundColor = "#F1F5F9"           # Fundo geral cinza-azulado bem claro e limpo
-secondaryBackgroundColor = "#E2E8F0"  # Fundo das caixas e barra lateral (suave e destacado)
-textColor = "#1E293B"                 # Texto escuro (excelente contraste para leitura)
+primaryColor = "#0284C7"              # Azul Oceano vibrante (botões e seletores)
+backgroundColor = "#F8FAFC"           # Fundo geral cinza/azul clarinho
+secondaryBackgroundColor = "#F1F5F9"  # Fundo suave para os blocos secundários
+textColor = "#0F172A"                 # Texto azul-escuro profundo (leitura perfeita)
 font = "sans serif"
