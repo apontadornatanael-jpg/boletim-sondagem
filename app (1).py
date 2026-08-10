@@ -14,10 +14,10 @@ import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 
-# ReportLab para geração de PDF
+# ReportLab para geração de PDF Profissional e Completo
 from reportlab.lib.pagesizes import A4, portrait
 from reportlab.lib import colors
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image as RLImage, PageBreak
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image as RLImage, PageBreak, HRFlowable
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import cm
 
@@ -486,26 +486,10 @@ if st.session_state['manobras']:
 
         # Mapeamento do Cabeçalho em 4 Grupos de Colunas
         matriz_cabecalho = [
-            # Linha 6
-            (('A6', 'ID do Furo:'), ('B6:C6', furo_id), 
-             ('D6', 'Coordenador:'), ('E6:F6', coordenador), 
-             ('G6', 'UTM (E):'), ('H6:I6', utm_e), 
-             ('J6', 'Inclinação:'), ('K6:L6', f"{inclinacao}°")),
-            # Linha 7
-            (('A7', 'Diâmetro:'), ('B7:C7', diametro), 
-             ('D7', 'Supervisor:'), ('E7:F7', supervisor), 
-             ('G7', 'UTM (N):'), ('H7:I7', utm_n), 
-             ('J7', 'Azimute:'), ('K7:L7', f"{azimute}°")),
-            # Linha 8
-            (('A8', 'Data Início:'), ('B8:C8', str(data_inicio)), 
-             ('D8', 'Geólogo Resp.:'), ('E8:F8', geologo), 
-             ('G8', 'Cota Z (m):'), ('H8:I8', cota_z), 
-             ('J8', 'Datum:'), ('K8:L8', datum)),
-            # Linha 9
-            (('A9', 'Data Fim:'), ('B9:C9', str(data_fim)), 
-             ('D9', 'Sondador:'), ('E9:F9', sondador), 
-             ('G9', 'Prof. Total (m):'), ('H9:I9', prof_max_val), 
-             ('J9', 'GPS (Lat/Lon):'), ('K9:L9', f"{lat_furo:.5f}, {lon_furo:.5f}"))
+            (('A6', 'ID do Furo:'), ('B6:C6', furo_id), ('D6', 'Coordenador:'), ('E6:F6', coordenador), ('G6', 'UTM (E):'), ('H6:I6', utm_e), ('J6', 'Inclinação:'), ('K6:L6', f"{inclinacao}°")),
+            (('A7', 'Diâmetro:'), ('B7:C7', diametro), ('D7', 'Supervisor:'), ('E7:F7', supervisor), ('G7', 'UTM (N):'), ('H7:I7', utm_n), ('J7', 'Azimute:'), ('K7:L7', f"{azimute}°")),
+            (('A8', 'Data Início:'), ('B8:C8', str(data_inicio)), ('D8', 'Geólogo Resp.:'), ('E8:F8', geologo), ('G8', 'Cota Z (m):'), ('H8:I8', cota_z), ('J8', 'Datum:'), ('K8:L8', datum)),
+            (('A9', 'Data Fim:'), ('B9:C9', str(data_fim)), ('D9', 'Sondador:'), ('E9:F9', sondador), ('G9', 'Prof. Total (m):'), ('H9:I9', prof_max_val), ('J9', 'GPS (Lat/Lon):'), ('K9:L9', f"{lat_furo:.5f}, {lon_furo:.5f}"))
         ]
 
         for linha in matriz_cabecalho:
@@ -533,14 +517,14 @@ if st.session_state['manobras']:
         df_excel = df_manobras.drop(columns=['Foto'])
         headers = list(df_excel.columns)
 
-        # Cabeçalho da Tabela (Linha 12)
+        # Cabeçalho da Tabela
         for col_idx, col_name in enumerate(headers, 1):
             cell = ws.cell(row=12, column=col_idx, value=col_name)
             cell.font = font_cabecalho_tab
             cell.fill = fill_azul_escuro
             cell.alignment = Alignment(horizontal='center', vertical='center')
 
-        # Preenchimento de Manobras (A partir da Linha 13)
+        # Preenchimento de Manobras
         start_row = 13
         for r_idx, row in df_excel.iterrows():
             curr_row = start_row + r_idx
@@ -552,7 +536,7 @@ if st.session_state['manobras']:
                 if curr_row % 2 == 0:
                     cell.fill = fill_zebrado
 
-        # Linha de Totais/Médias (Abaixo das Manobras)
+        # Linha de Totais/Médias
         tot_row = start_row + len(df_excel) + 1
         ws.cell(row=tot_row, column=1, value="TOTAL / MÉDIA").font = font_totais
         ws.cell(row=tot_row, column=4, value=df_excel['Avanço (m)'].sum()).font = font_totais
@@ -603,30 +587,203 @@ if st.session_state['manobras']:
             use_container_width=True
         )
 
-    # EXPORTAÇÃO PDF
+    # EXPORTAÇÃO PDF COMPLETO E DETALHADO (2 PÁGINAS)
     with col_exp2:
-        if st.button("📄 Gerar Relatório PDF Oficial", use_container_width=True):
+        if st.button("📄 Gerar Relatório PDF Completo", use_container_width=True):
             pdf_buf = io.BytesIO()
-            doc = SimpleDocTemplate(pdf_buf, pagesize=portrait(A4), rightMargin=1.5*cm, leftMargin=1.5*cm, topMargin=1.5*cm, bottomMargin=1.5*cm)
+            doc = SimpleDocTemplate(
+                pdf_buf, pagesize=portrait(A4), 
+                rightMargin=1.0*cm, leftMargin=1.0*cm, 
+                topMargin=1.0*cm, bottomMargin=1.0*cm
+            )
             elements = []
             styles = getSampleStyleSheet()
 
-            title_style = ParagraphStyle('TitleStyle', parent=styles['Heading1'], fontSize=16, leading=20, textColor=colors.HexColor('#0284C7'), alignment=1)
-            elements.append(Paragraph(f"<b>BOLETIM DE SONDAGEM MINERAL - {furo_id}</b>", title_style))
+            # Estilos Customizados
+            pdf_title = ParagraphStyle('PDFTitle', parent=styles['Heading1'], fontSize=14, leading=16, textColor=colors.HexColor('#1F497D'), alignment=1, fontName='Helvetica-Bold')
+            pdf_sub = ParagraphStyle('PDFSub', parent=styles['Normal'], fontSize=9, leading=11, textColor=colors.HexColor('#595959'), alignment=1, fontName='Helvetica-Bold')
+            pdf_sec = ParagraphStyle('PDFSec', parent=styles['Heading2'], fontSize=10, leading=12, textColor=colors.white, fontName='Helvetica-Bold', backColor=colors.HexColor('#595959'), spaceBefore=4, spaceAfter=4)
+            pdf_sec_blue = ParagraphStyle('PDFSecBlue', parent=styles['Heading2'], fontSize=10, leading=12, textColor=colors.white, fontName='Helvetica-Bold', backColor=colors.HexColor('#1F497D'), spaceBefore=4, spaceAfter=4)
+            pdf_text = ParagraphStyle('PDFText', parent=styles['Normal'], fontSize=8, leading=9, fontName='Helvetica')
+            pdf_text_bold = ParagraphStyle('PDFTextBold', parent=styles['Normal'], fontSize=8, leading=9, fontName='Helvetica-Bold')
+            pdf_text_center = ParagraphStyle('PDFTextCenter', parent=styles['Normal'], fontSize=8, leading=9, alignment=1, fontName='Helvetica')
+
+            # --- CABEÇALHO DO PDF ---
+            header_table_data = [
+                [Paragraph("<b>LOGO MARCA</b><br/><font size=6>EMPRESA</font>", pdf_text_center),
+                 Paragraph(f"<b>BOLETIM TÉCNICO DE SONDAGEM GEOLÓGICA</b><br/><font size=8 color='#595959'>EMPRESA: {empresa.upper()} | PROJETO: {projeto.upper()}</font>", pdf_title)]
+            ]
+            t_header = Table(header_table_data, colWidths=[3.5*cm, 15.5*cm])
+            t_header.setStyle(TableStyle([
+                ('BACKGROUND', (0,0), (0,0), colors.HexColor('#E9EEF4')),
+                ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+                ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+                ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#D9D9D9')),
+                ('BOTTOMPADDING', (0,0), (-1,-1), 6),
+                ('TOPPADDING', (0,0), (-1,-1), 6),
+            ]))
+            elements.append(t_header)
+            elements.append(Spacer(1, 6))
+
+            # --- DADOS DE GESTÃO E LOCALIZAÇÃO ---
+            elements.append(Paragraph(" 1. DADOS DE GESTÃO, EQUIPE E LOCALIZAÇÃO DO FURO", pdf_sec))
+            
+            prof_total_val = float(df_manobras['Para (m)'].max())
+            dados_furo_table = [
+                [Paragraph("<b>ID do Furo:</b>", pdf_text), Paragraph(furo_id, pdf_text_bold), Paragraph("<b>Coordenador:</b>", pdf_text), Paragraph(coordenador, pdf_text), Paragraph("<b>UTM (E):</b>", pdf_text), Paragraph(f"{utm_e:.2f}", pdf_text), Paragraph("<b>Inclinação:</b>", pdf_text), Paragraph(f"{inclinacao}°", pdf_text)],
+                [Paragraph("<b>Diâmetro:</b>", pdf_text), Paragraph(diametro, pdf_text), Paragraph("<b>Supervisor:</b>", pdf_text), Paragraph(supervisor, pdf_text), Paragraph("<b>UTM (N):</b>", pdf_text), Paragraph(f"{utm_n:.2f}", pdf_text), Paragraph("<b>Azimute:</b>", pdf_text), Paragraph(f"{azimute}°", pdf_text)],
+                [Paragraph("<b>Data Início:</b>", pdf_text), Paragraph(str(data_inicio), pdf_text), Paragraph("<b>Geólogo Resp.:</b>", pdf_text), Paragraph(geologo, pdf_text), Paragraph("<b>Cota Z (m):</b>", pdf_text), Paragraph(f"{cota_z:.2f}", pdf_text), Paragraph("<b>Datum:</b>", pdf_text), Paragraph(datum, pdf_text)],
+                [Paragraph("<b>Data Fim:</b>", pdf_text), Paragraph(str(data_fim), pdf_text), Paragraph("<b>Sondador:</b>", pdf_text), Paragraph(sondador, pdf_text), Paragraph("<b>Prof. Total:</b>", pdf_text), Paragraph(f"{prof_total_val:.2f} m", pdf_text_bold), Paragraph("<b>GPS (Lat/Lon):</b>", pdf_text), Paragraph(f"{lat_furo:.4f}, {lon_furo:.4f}", pdf_text)]
+            ]
+            t_furo = Table(dados_furo_table, colWidths=[2.1*cm, 2.6*cm, 2.2*cm, 3.0*cm, 2.1*cm, 2.3*cm, 2.1*cm, 2.6*cm])
+            t_furo.setStyle(TableStyle([
+                ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#E2E8F0')),
+                ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+                ('TOPPADDING', (0,0), (-1,-1), 3),
+                ('BOTTOMPADDING', (0,0), (-1,-1), 3),
+                ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#F8FAFC'))
+            ]))
+            elements.append(t_furo)
+            elements.append(Spacer(1, 6))
+
+            # --- TABELA DE MANOBRAS E GEOTECNIA ---
+            elements.append(Paragraph(" 2. REGISTRO DE MANOBRAS E GEOTECNIA", pdf_sec_blue))
+            
+            table_manobras_data = [
+                [Paragraph("<b>Mnb</b>", pdf_text_center), Paragraph("<b>De (m)</b>", pdf_text_center), Paragraph("<b>Para (m)</b>", pdf_text_center), 
+                 Paragraph("<b>Av. (m)</b>", pdf_text_center), Paragraph("<b>Rec. (m)</b>", pdf_text_center), Paragraph("<b>Rec (%)</b>", pdf_text_center), 
+                 Paragraph("<b>RQD (m)</b>", pdf_text_center), Paragraph("<b>RQD (%)</b>", pdf_text_center), Paragraph("<b>Qualidade</b>", pdf_text_center), 
+                 Paragraph("<b>Litologia</b>", pdf_text_center), Paragraph("<b>Alteração</b>", pdf_text_center), Paragraph("<b>Observações</b>", pdf_text_center)]
+            ]
+
+            for _, r in df_manobras.iterrows():
+                table_manobras_data.append([
+                    Paragraph(str(int(r['Manobra'])), pdf_text_center), Paragraph(f"{r['De (m)']:.2f}", pdf_text_center),
+                    Paragraph(f"{r['Para (m)']:.2f}", pdf_text_center), Paragraph(f"{r['Avanço (m)']:.2f}", pdf_text_center),
+                    Paragraph(f"{r['Rec. (m)']:.2f}", pdf_text_center), Paragraph(f"{r['Rec (%)']:.1f}%", pdf_text_center),
+                    Paragraph(f"{r['RQD (m)']:.2f}", pdf_text_center), Paragraph(f"{r['RQD (%)']:.1f}%", pdf_text_center),
+                    Paragraph(str(r['Qualidade RQD']), pdf_text_center), Paragraph(str(r['Litologia']), pdf_text),
+                    Paragraph(str(r['Alteração']), pdf_text), Paragraph(str(r['Observações'] or '-'), pdf_text)
+                ])
+
+            # Linha de Totais/Médias
+            table_manobras_data.append([
+                Paragraph("<b>TOTAL / MÉDIA</b>", pdf_text_bold), Paragraph("", pdf_text), Paragraph("", pdf_text),
+                Paragraph(f"<b>{df_manobras['Avanço (m)'].sum():.2f}</b>", pdf_text_center),
+                Paragraph(f"<b>{df_manobras['Rec. (m)'].sum():.2f}</b>", pdf_text_center),
+                Paragraph(f"<b>{df_manobras['Rec (%)'].mean():.1f}%</b>", pdf_text_center),
+                Paragraph(f"<b>{df_manobras['RQD (m)'].sum():.2f}</b>", pdf_text_center),
+                Paragraph(f"<b>{df_manobras['RQD (%)'].mean():.1f}%</b>", pdf_text_center),
+                Paragraph("", pdf_text), Paragraph("", pdf_text), Paragraph("", pdf_text), Paragraph("", pdf_text)
+            ])
+
+            t_manobras = Table(table_manobras_data, colWidths=[1.0*cm, 1.3*cm, 1.3*cm, 1.3*cm, 1.3*cm, 1.3*cm, 1.3*cm, 1.3*cm, 1.8*cm, 2.5*cm, 2.2*cm, 2.4*cm])
+            t_manobras.setStyle(TableStyle([
+                ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1F497D')),
+                ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+                ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
+                ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+                ('TOPPADDING', (0,0), (-1,-1), 3),
+                ('BOTTOMPADDING', (0,0), (-1,-1), 3),
+                ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#E2E8F0')),
+            ]))
+            elements.append(t_manobras)
+            elements.append(Spacer(1, 8))
+
+            # --- GRÁFICO DO PERFIL ESTRATIGRÁFICO ---
+            elements.append(Paragraph(" 3. PERFIL STRATIGRÁFICO E CURVA DE QUALIDADE ROCHOSA", pdf_sec))
+            img_buf_pdf = io.BytesIO()
+            fig.savefig(img_buf_pdf, format='png', dpi=200, bbox_inches='tight')
+            img_buf_pdf.seek(0)
+            elements.append(RLImage(img_buf_pdf, width=19*cm, height=8.5*cm))
+
+            # --- QUEBRA PARA PÁGINA 2 (ANEXOS & ASSINATURAS) ---
+            elements.append(PageBreak())
+
+            elements.append(Paragraph(" 4. QUADRO DE RESUMO GEOTÉCNICO E AMBIENTAL", pdf_sec_blue))
+            kpi_data = [
+                [Paragraph("<b>Profundidade Final:</b>", pdf_text), Paragraph(f"{prof_total_val:.2f} m", pdf_text_bold), Paragraph("<b>Avanço Médio:</b>", pdf_text), Paragraph(f"{df_manobras['Avanço (m)'].mean():.2f} m", pdf_text)],
+                [Paragraph("<b>Recuperação Média:</b>", pdf_text), Paragraph(f"{df_manobras['Rec (%)'].mean():.1f}%", pdf_text_bold), Paragraph("<b>RQD Médio:</b>", pdf_text), Paragraph(f"{df_manobras['RQD (%)'].mean():.1f}%", pdf_text_bold)],
+                [Paragraph("<b>Classificação da Rocha:</b>", pdf_text), Paragraph(qualidade_geral, pdf_text_bold), Paragraph("<b>Total Manobras:</b>", pdf_text), Paragraph(str(len(df_manobras)), pdf_text)]
+            ]
+            t_kpi = Table(kpi_data, colWidths=[4*cm, 5.5*cm, 4*cm, 5.5*cm])
+            t_kpi.setStyle(TableStyle([
+                ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
+                ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#F8FAFC')),
+                ('TOPPADDING', (0,0), (-1,-1), 4),
+                ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+            ]))
+            elements.append(t_kpi)
             elements.append(Spacer(1, 10))
 
-            img_buf = io.BytesIO()
-            fig.savefig(img_buf, format='png', dpi=150, bbox_inches='tight')
-            img_buf.seek(0)
+            # GALERIA DE FOTOS NO PDF
+            fotos_manobras = [m for m in st.session_state['manobras'] if m.get('Foto') is not None]
+            if fotos_manobras:
+                elements.append(Paragraph(" 5. REGISTRO FOTOGRÁFICO DE REGISTRO EM CAMPO", pdf_sec))
+                
+                foto_cells = []
+                for idx, m_f in enumerate(fotos_manobras):
+                    img_temp = m_f['Foto']
+                    img_f_buf = io.BytesIO()
+                    img_temp.save(img_f_buf, format='PNG')
+                    img_f_buf.seek(0)
+                    
+                    cell_content = [
+                        RLImage(img_f_buf, width=8.5*cm, height=5.0*cm),
+                        Paragraph(f"<b>Manobra {m_f['Manobra']}</b>: {m_f['De (m)']:.1f}m - {m_f['Para (m)']:.1f}m ({m_f['Litologia']})", pdf_text_center)
+                    ]
+                    foto_cells.append(cell_content)
 
-            elements.append(RLImage(img_buf, width=16*cm, height=8*cm))
-            elements.append(Spacer(1, 10))
+                # Organiza as fotos em 2 colunas
+                foto_rows = []
+                for i in range(0, len(foto_cells), 2):
+                    row_pair = foto_cells[i:i+2]
+                    if len(row_pair) == 1:
+                        row_pair.append(["", ""])
+                    foto_rows.append(row_pair)
+
+                t_fotos = Table(foto_rows, colWidths=[9.5*cm, 9.5*cm])
+                t_fotos.setStyle(TableStyle([
+                    ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+                    ('VALIGN', (0,0), (-1,-1), 'TOP'),
+                    ('BOTTOMPADDING', (0,0), (-1,-1), 8),
+                ]))
+                elements.append(t_fotos)
+                elements.append(Spacer(1, 10))
+
+            # BLOCOS DE ASSINATURA OFICIAL
+            elements.append(Spacer(1, 20))
+            elements.append(Paragraph(" 6. ENCERRAMENTO E ASSINATURAS DOS RESPONSÁVEIS", pdf_sec_blue))
+            elements.append(Spacer(1, 15))
+
+            # Verifica se foi inserida uma assinatura na tela pelo Canvas
+            sig_img_element = Paragraph("________________________________________", pdf_text_center)
+            if canvas_result.image_data is not None:
+                # Transforma array do canvas em imagem PNG para o PDF
+                sig_img = Image.fromarray(canvas_result.image_data.astype('uint8'), 'RGBA')
+                sig_buf = io.BytesIO()
+                sig_img.save(sig_buf, format='PNG')
+                sig_buf.seek(0)
+                sig_img_element = RLImage(sig_buf, width=6*cm, height=1.8*cm)
+
+            assinaturas_data = [
+                [sig_img_element, Paragraph("________________________________________", pdf_text_center)],
+                [Paragraph(f"<b>Geólogo Responsável</b><br/>{geologo}", pdf_text_center),
+                 Paragraph(f"<b>Supervisor / Coordenador</b><br/>{supervisor}", pdf_text_center)]
+            ]
+            t_ass = Table(assinaturas_data, colWidths=[9.5*cm, 9.5*cm])
+            t_ass.setStyle(TableStyle([
+                ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+                ('VALIGN', (0,0), (-1,-1), 'BOTTOM'),
+                ('TOPPADDING', (0,0), (-1,-1), 4),
+            ]))
+            elements.append(t_ass)
 
             doc.build(elements)
             st.download_button(
-                label="📥 Baixar PDF Concluído",
+                label="📥 Baixar PDF Relatório Oficial Completo",
                 data=pdf_buf.getvalue(),
-                file_name=f"Relatorio_{furo_id}.pdf",
+                file_name=f"Relatorio_Oficial_{furo_id}.pdf",
                 mime="application/pdf",
                 use_container_width=True
             )
