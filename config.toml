@@ -1,6 +1,0 @@
-[theme]
-primaryColor = "#D97706"              # Cor dos botões, seletores e destaques (Tom Âmbar/Laranja Geológico)
-backgroundColor = "#F8FAFC"           # Cor de fundo da tela (Cinza Claro Suave)
-secondaryBackgroundColor = "#1E293B"  # Cor de fundo da barra lateral/Sidebar (Azul Escuro Grafite)
-textColor = "#0F172A"                 # Cor do texto principal (Escuro para leitura fácil em campo)
-font = "sans serif"
