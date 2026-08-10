@@ -4,7 +4,9 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import io
 from datetime import datetime
-import pydeck as pdk  # Biblioteca para o Mapa 3D
+
+import folium
+from streamlit_folium import st_folium
 
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
@@ -139,7 +141,7 @@ with st.expander("🌐 Dados Geográficos, GPS e Parâmetros do Furo", expanded=
         data_fim = st.date_input("Data de Término", value=datetime.now())
 
     st.markdown("---")
-    st.subheader("📍 Coordenadas Geográficas (GPS) & Visualização 3D do Furo")
+    st.subheader("📍 Coordenadas Geográficas (GPS) & Mapa do Furo (Satélite)")
     
     col_gps1, col_gps2 = st.columns(2)
     with col_gps1:
@@ -147,44 +149,48 @@ with st.expander("🌐 Dados Geográficos, GPS e Parâmetros do Furo", expanded=
     with col_gps2:
         lon_furo = st.number_input("Longitude (ex: -36.512345)", value=-36.512345, format="%.6f")
     
-    # Configuração de dados para o PyDeck 3D
-    df_gps = pd.DataFrame({
-        'lat': [lat_furo],
-        'lon': [lon_furo],
-        'elevation': [150]  # Altura visual do marcador/coluna em 3D
-    })
+    # Renderização com Folium (Satélite Esri World Imagery - Sem travamento)
+    m = folium.Map(location=[lat_furo, lon_furo], zoom_start=16, tiles=None)
 
-    # Camada 3D do Furo (Coluna tridimensional)
-    layer_3d = pdk.Layer(
-        "ColumnLayer",
-        data=df_gps,
-        get_position=["lon", "lat"],
-        get_elevation="elevation",
-        elevation_scale=1,
-        radius=15,  # Raio do cilindro (metros)
-        get_fill_color=[2, 132, 199, 220],  # Azul Cyan
-        pickable=True,
-        auto_highlight=True,
-    )
+    # Camada de Satélite de alta resolução
+    folium.TileLayer(
+        tiles='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        attr='Esri World Imagery',
+        name='Satélite (Esri)',
+        overlay=False,
+        control=True
+    ).add_to(m)
 
-    # Configuração da câmera 3D (Inclinação pitch=60 e Rotação bearing=30)
-    view_state = pdk.ViewState(
-        latitude=lat_furo,
-        longitude=lon_furo,
-        zoom=15,
-        pitch=60,
-        bearing=30
-    )
+    # Camada Terreno / Topografia
+    folium.TileLayer(
+        tiles='OpenStreetMap',
+        name='Mapa de Ruas/Topografia',
+        overlay=False,
+        control=True
+    ).add_to(m)
 
-    # Renderização do Mapa 3D Satélite
-    st.pydeck_chart(
-        pdk.Deck(
-            layers=[layer_3d],
-            initial_view_state=view_state,
-            tooltip={"text": f"Furo: {furo_id}\nLat: {lat_furo}\nLon: {lon_furo}"},
-            map_style="mapbox://styles/mapbox/satellite-streets-v12"
-        )
-    )
+    # Adiciona o Marcador do Furo no Mapa
+    folium.Marker(
+        [lat_furo, lon_furo],
+        popup=f"<b>Furo: {furo_id}</b><br>Lat: {lat_furo}<br>Lon: {lon_furo}<br>Cota: {cota_z}m",
+        tooltip=f"Furo {furo_id}",
+        icon=folium.Icon(color='red', icon='info-sign')
+    ).add_to(m)
+
+    # Círculo de área ao redor do furo
+    folium.Circle(
+        radius=30,
+        location=[lat_furo, lon_furo],
+        color="#0284C7",
+        fill=True,
+        fill_color="#0284C7",
+        fill_opacity=0.4
+    ).add_to(m)
+
+    folium.LayerControl().add_to(m)
+
+    # Exibe no Streamlit de forma fluida
+    st_folium(m, width="100%", height=450)
 
 st.markdown("---")
 
