@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import io
 from datetime import datetime
+import pydeck as pdk  # Biblioteca para o Mapa 3D
 
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
@@ -138,7 +139,7 @@ with st.expander("🌐 Dados Geográficos, GPS e Parâmetros do Furo", expanded=
         data_fim = st.date_input("Data de Término", value=datetime.now())
 
     st.markdown("---")
-    st.subheader("📍 Coordenadas Geográficas (GPS) & Mapa do Furo")
+    st.subheader("📍 Coordenadas Geográficas (GPS) & Visualização 3D do Furo")
     
     col_gps1, col_gps2 = st.columns(2)
     with col_gps1:
@@ -146,9 +147,44 @@ with st.expander("🌐 Dados Geográficos, GPS e Parâmetros do Furo", expanded=
     with col_gps2:
         lon_furo = st.number_input("Longitude (ex: -36.512345)", value=-36.512345, format="%.6f")
     
-    # Exibição do Mapa Interativo com a Posição do Furo
-    df_gps = pd.DataFrame({'lat': [lat_furo], 'lon': [lon_furo]})
-    st.map(df_gps, zoom=14)
+    # Configuração de dados para o PyDeck 3D
+    df_gps = pd.DataFrame({
+        'lat': [lat_furo],
+        'lon': [lon_furo],
+        'elevation': [150]  # Altura visual do marcador/coluna em 3D
+    })
+
+    # Camada 3D do Furo (Coluna tridimensional)
+    layer_3d = pdk.Layer(
+        "ColumnLayer",
+        data=df_gps,
+        get_position=["lon", "lat"],
+        get_elevation="elevation",
+        elevation_scale=1,
+        radius=15,  # Raio do cilindro (metros)
+        get_fill_color=[2, 132, 199, 220],  # Azul Cyan
+        pickable=True,
+        auto_highlight=True,
+    )
+
+    # Configuração da câmera 3D (Inclinação pitch=60 e Rotação bearing=30)
+    view_state = pdk.ViewState(
+        latitude=lat_furo,
+        longitude=lon_furo,
+        zoom=15,
+        pitch=60,
+        bearing=30
+    )
+
+    # Renderização do Mapa 3D Satélite
+    st.pydeck_chart(
+        pdk.Deck(
+            layers=[layer_3d],
+            initial_view_state=view_state,
+            tooltip={"text": f"Furo: {furo_id}\nLat: {lat_furo}\nLon: {lon_furo}"},
+            map_style="mapbox://styles/mapbox/satellite-streets-v12"
+        )
+    )
 
 st.markdown("---")
 
@@ -220,7 +256,7 @@ if btn_remover and st.session_state['manobras']:
 
 st.markdown("---")
 
-# 3. REGISTRO CONSOLIDADO & EXPORTAÇÃO EXCEL AMPLIADA
+# 3. REGISTRO CONSOLIDADO & EXPORTAÇÃO EXCEL
 st.header("3. Tabela Consolidada e Exportação Oficial")
 
 if st.session_state['manobras']:
