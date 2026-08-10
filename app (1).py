@@ -275,7 +275,6 @@ st.markdown("---")
 # 📲 FUNCIONALIDADE MODO OFFLINE / LOCAL STORAGE
 st.header("📲 Armazenamento Offline & Sincronização")
 
-# Funções JavaScript para interagir com o navegador
 def salvar_localmente_browser(chave, dados_json):
     js_code = f"""
         localStorage.setItem('{chave}', JSON.stringify({dados_json}));
@@ -296,7 +295,7 @@ with col_off1:
             for item in st.session_state['manobras']:
                 item_copia = item.copy()
                 if 'Foto' in item_copia:
-                    item_copia['Foto'] = None  # Remove objeto de imagem para serializar levemente em JSON
+                    item_copia['Foto'] = None
                 dados_para_salvar.append(item_copia)
                 
             dados_json = json.dumps(dados_para_salvar)
@@ -316,7 +315,7 @@ with col_off2:
             except Exception:
                 st.error("Erro ao ler o rascunho salvo no dispositivo.")
         else:
-            st.info("Nenum rascunho encontrado no dispositivo.")
+            st.info("Nenhum rascunho encontrado no dispositivo.")
 
 with col_off3:
     if st.button("📡 Sincronizar quando houver sinal", type="primary"):
@@ -329,8 +328,8 @@ with col_off3:
 
 st.markdown("---")
 
-# 3. TABELA CONSOLIDADA E GERADOR DE RELATÓRIOS (EXCEL FORMATADO E PDF)
-st.header("3. Relatórios e Assinatura Digital")
+# 3. TABELA CONSOLIDADA & PERFIL VISUAL EM TEMPO REAL
+st.header("3. Perfil Litológico e Tabela Consolidada")
 
 if st.session_state['manobras']:
     df_manobras = pd.DataFrame(st.session_state['manobras'])
@@ -343,10 +342,64 @@ if st.session_state['manobras']:
         use_container_width=True, hide_index=True
     )
 
-    # GERADOR DO GRÁFICO PARA O PDF
+    # --- PERFIL LITOLÓGICO INTERATIVO EM TEMPO REAL ---
+    st.subheader("🪨 Perfil Litológico & RQD Interativo em Tempo Real")
+    
+    fig_tela, (ax_lito, ax_rqd, ax_rec) = plt.subplots(1, 3, figsize=(10, 5), sharey=True)
+    prof_max = df_manobras['Para (m)'].max()
+    ax_lito.set_ylim(prof_max, 0)  # Inverte eixo Y para a profundidade crescer para baixo
+
+    # 1. Coluna Estratigráfica (Litologia)
+    litos_usadas = set()
+    for _, row in df_manobras.iterrows():
+        de_m, para_m, lito = row['De (m)'], row['Para (m)'], row['Litologia']
+        cor = CORES_LITOLOGIA.get(lito, '#808080')
+        litos_usadas.add(lito)
+        ax_lito.add_patch(mpatches.Rectangle((0, de_m), 1, para_m - de_m, facecolor=cor, edgecolor='#333333', linewidth=0.8))
+
+    ax_lito.set_xlim(0, 1)
+    ax_lito.set_title("Litologia", fontsize=11, fontweight='bold', color='#0369A1')
+    ax_lito.set_ylabel("Profundidade (m)", fontsize=10, fontweight='bold')
+    ax_lito.get_xaxis().set_visible(False)
+
+    # Legenda da Litologia
+    legend_patches = [mpatches.Patch(color=CORES_LITOLOGIA.get(l, '#808080'), label=l) for l in litos_usadas]
+    ax_lito.legend(handles=legend_patches, loc='lower center', bbox_to_anchor=(0.5, -0.25), fontsize=8, frameon=False)
+
+    # 2. Perfil de RQD (%)
+    for _, row in df_manobras.iterrows():
+        # Define cor das barras do RQD de acordo com a qualidade
+        rqd_val = row['RQD (%)']
+        if rqd_val < 25: c_rqd = '#e74c3c'
+        elif rqd_val < 50: c_rqd = '#e67e22'
+        elif rqd_val < 75: c_rqd = '#f1c40f'
+        elif rqd_val < 90: c_rqd = '#2ecc71'
+        else: c_rqd = '#27ae60'
+
+        ax_rqd.barh(y=row['De (m)'] + row['Avanço (m)']/2, width=rqd_val, height=row['Avanço (m)'], color=c_rqd, edgecolor='#333333', linewidth=0.5)
+
+    ax_rqd.set_xlim(0, 105)
+    ax_rqd.set_title("RQD (%)", fontsize=11, fontweight='bold', color='#0369A1')
+    ax_rqd.set_xlabel("%", fontsize=9)
+    ax_rqd.grid(True, linestyle='--', alpha=0.5)
+
+    # 3. Perfil de Recuperação (%)
+    for _, row in df_manobras.iterrows():
+        ax_rec.barh(y=row['De (m)'] + row['Avanço (m)']/2, width=row['Rec (%)'], height=row['Avanço (m)'], color='#3498db', edgecolor='#333333', linewidth=0.5)
+
+    ax_rec.set_xlim(0, 105)
+    ax_rec.set_title("Recuperação (%)", fontsize=11, fontweight='bold', color='#0369A1')
+    ax_rec.set_xlabel("%", fontsize=9)
+    ax_rec.grid(True, linestyle='--', alpha=0.5)
+
+    plt.tight_layout()
+    st.pyplot(fig_tela)
+
+    st.markdown("---")
+
+    # Funções de Relatórios (Excel e PDF)
     def gerar_grafico_perfil():
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 4), sharey=True)
-        prof_max = df_manobras['Para (m)'].max()
         ax1.set_ylim(prof_max, 0)
 
         for _, row in df_manobras.iterrows():
@@ -387,7 +440,7 @@ if st.session_state['manobras']:
 
     col_exp1, col_exp2 = st.columns(2)
 
-    # EXPORTAÇÃO EXCEL FORMATADO PROFISSIONALMENTE
+    # EXPORTAÇÃO EXCEL FORMATADO
     with col_exp1:
         buffer_xls = io.BytesIO()
         wb = openpyxl.Workbook()
