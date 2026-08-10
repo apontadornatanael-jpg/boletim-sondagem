@@ -294,7 +294,7 @@ with col_off2:
             except Exception:
                 st.error("Erro ao ler o rascunho salvo.")
         else:
-            st.info("Nenum rascunho encontrado.")
+            st.info("Nenhum rascunho encontrado.")
 
 with col_off3:
     if st.button("📡 Sincronizar quando houver sinal", type="primary"):
@@ -338,7 +338,7 @@ if st.session_state['manobras']:
         info_lito = DADOS_LITOLOGIA.get(lito, {'cor': '#808080', 'hatch': ''})
         litos_usadas.add(lito)
 
-        # 1. Desenha o Bloco da Litologia com Hachura Geológica Visível
+        # 1. Desenha o Bloco da Litologia
         rect = mpatches.Rectangle(
             (0, de_m), 1, para_m - de_m,
             facecolor=info_lito['cor'],
@@ -348,10 +348,8 @@ if st.session_state['manobras']:
         )
         ax_lito.add_patch(rect)
         
-        # Linha delimitadora da manobra no gráfico
         ax_lito.axhline(para_m, color='#0F172A', linestyle='--', linewidth=0.8)
 
-        # Rótulo com o texto da Litologia + Limites no meio do bloco
         texto_bloco = f"{lito}\n({de_m:.1f}m - {para_m:.1f}m)"
         ax_lito.text(
             0.5, (de_m + para_m)/2, texto_bloco, 
@@ -359,12 +357,12 @@ if st.session_state['manobras']:
             bbox=dict(boxstyle='round,pad=0.2', facecolor='#FFFFFF', alpha=0.85, edgecolor='#94A3B8')
         )
 
-        # 2. RQD Colorido Geotécnico
-        if rqd_val < 25: color_rqd = '#EF4444'     # Muito Pobre (Vermelho)
-        elif rqd_val < 50: color_rqd = '#F97316'   # Pobre (Laranja)
-        elif rqd_val < 75: color_rqd = '#EAB308'   # Razoável (Amarelo)
-        elif rqd_val < 90: color_rqd = '#3B82F6'   # Boa (Azul)
-        else: color_rqd = '#22C55E'               # Excelente (Verde)
+        # 2. RQD Colorido
+        if rqd_val < 25: color_rqd = '#EF4444'
+        elif rqd_val < 50: color_rqd = '#F97316'
+        elif rqd_val < 75: color_rqd = '#EAB308'
+        elif rqd_val < 90: color_rqd = '#3B82F6'
+        else: color_rqd = '#22C55E'
 
         ax_rqd.barh(
             y=de_m + (para_m - de_m)/2, width=rqd_val, 
@@ -385,7 +383,6 @@ if st.session_state['manobras']:
     ax_lito.set_ylabel("Profundidade (m)", fontsize=10, fontweight='bold')
     ax_lito.get_xaxis().set_visible(False)
 
-    # Legenda Dinâmica de Litologia
     patches_legenda = [
         mpatches.Patch(
             facecolor=DADOS_LITOLOGIA[l]['cor'], 
@@ -430,7 +427,7 @@ if st.session_state['manobras']:
 
     col_exp1, col_exp2 = st.columns(2)
 
-    # EXPORTAÇÃO EXCEL COMPLETA E DETALHADA
+    # EXPORTAÇÃO EXCEL IDENTICA AO MODELO OFICIAL
     with col_exp1:
         buffer_xls = io.BytesIO()
         wb = openpyxl.Workbook()
@@ -438,18 +435,21 @@ if st.session_state['manobras']:
         ws.title = "Boletim de Sondagem"
         ws.views.sheetView[0].showGridLines = True
 
-        # Estilos do Excel
+        # Estilos idênticos ao Modelo
         font_titulo = Font(name='Calibri', size=16, bold=True, color='1F497D')
+        font_subtitulo = Font(name='Calibri', size=11, bold=True, color='595959')
+        font_logo = Font(name='Calibri', size=9, bold=False, color='595959')
         font_secao = Font(name='Calibri', size=11, bold=True, color='FFFFFF')
         font_rotulo = Font(name='Calibri', size=10, bold=True, color='333333')
         font_valor = Font(name='Calibri', size=10, bold=False, color='000000')
         font_cabecalho_tab = Font(name='Calibri', size=10, bold=True, color='FFFFFF')
         font_dados = Font(name='Calibri', size=10)
+        font_totais = Font(name='Calibri', size=10, bold=True)
         
+        fill_logo = PatternFill(start_color='E9EEF4', end_color='E9EEF4', fill_type='solid')
         fill_azul_escuro = PatternFill(start_color='1F497D', end_color='1F497D', fill_type='solid')
         fill_cinza_secao = PatternFill(start_color='595959', end_color='595959', fill_type='solid')
         fill_zebrado = PatternFill(start_color='F2F5F9', end_color='F2F5F9', fill_type='solid')
-        fill_info = PatternFill(start_color='F8FAFC', end_color='F8FAFC', fill_type='solid')
 
         border_fina = Border(
             left=Side(style='thin', color='D9D9D9'),
@@ -458,77 +458,137 @@ if st.session_state['manobras']:
             bottom=Side(style='thin', color='D9D9D9')
         )
 
-        # 1. TÍTULO PRINCIPAL DO BOLETIM
-        ws.merge_cells('A1:L2')
-        ws['A1'] = "BOLETIM TÉCNICO DE SONDAGEM GEOLÓGICA"
-        ws['A1'].font = font_titulo
-        ws['A1'].alignment = Alignment(horizontal='center', vertical='center')
+        # 1. ESPAÇO LOGO (A1:C3) E TÍTULOS (D1:L2 e D3:L3)
+        ws.merge_cells('A1:C3')
+        ws['A1'] = " Espaço Reservado\n para LOGO MARCA\n da Empresa"
+        ws['A1'].font = font_logo
+        ws['A1'].fill = fill_logo
+        ws['A1'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
 
-        # 2. SEÇÃO 1: CABEÇALHO COM DADOS DE GESTÃO E LOCALIZAÇÃO
-        ws.merge_cells('A4:L4')
-        ws['A4'] = " 1. DADOS DE GESTÃO, EQUIPE E LOCALIZAÇÃO DO FURO"
-        ws['A4'].font = font_secao
-        ws['A4'].fill = fill_cinza_secao
-        ws['A4'].alignment = Alignment(horizontal='left', vertical='center')
+        ws.merge_cells('D1:L2')
+        ws['D1'] = "BOLETIM TÉCNICO DE SONDAGEM GEOLÓGICA"
+        ws['D1'].font = font_titulo
+        ws['D1'].alignment = Alignment(horizontal='center', vertical='center')
 
-        # Matriz Completa do Cabeçalho
-        dados_cabecalho = [
-            [("Empresa / Mineradora:", empresa), ("Coordenador:", coordenador), ("Geólogo Resp.:", geologo), ("ID do Furo:", furo_id)],
-            [("Projeto:", projeto), ("Supervisor:", supervisor), ("Sondador / Equipe:", sondador), ("Diâmetro:", diametro)],
-            [("UTM (E):", utm_e), ("Cota Z (m):", cota_z), ("Inclinação (°):", inclinacao), ("Data Início:", str(data_inicio))],
-            [("UTM (N):", utm_n), ("Datum:", datum), ("Azimute (°):", azimute), ("Data Término:", str(data_fim))]
+        ws.merge_cells('D3:L3')
+        ws['D3'] = f"EMPRESA: {empresa.upper()} | PROJETO: {projeto.upper()}"
+        ws['D3'].font = font_subtitulo
+        ws['D3'].alignment = Alignment(horizontal='center', vertical='center')
+
+        # 2. SEÇÃO 1: CABEÇALHO DADOS DE GESTÃO E LOCALIZAÇÃO (Linha 5 a 9)
+        ws.merge_cells('A5:L5')
+        ws['A5'] = " 1. DADOS DE GESTÃO, EQUIPE E LOCALIZAÇÃO DO FURO"
+        ws['A5'].font = font_secao
+        ws['A5'].fill = fill_cinza_secao
+        ws['A5'].alignment = Alignment(horizontal='left', vertical='center')
+
+        prof_max_val = float(df_manobras['Para (m)'].max()) if not df_manobras.empty else 0.0
+
+        # Mapeamento do Cabeçalho em 4 Grupos de Colunas
+        matriz_cabecalho = [
+            # Linha 6
+            (('A6', 'ID do Furo:'), ('B6:C6', furo_id), 
+             ('D6', 'Coordenador:'), ('E6:F6', coordenador), 
+             ('G6', 'UTM (E):'), ('H6:I6', utm_e), 
+             ('J6', 'Inclinação:'), ('K6:L6', f"{inclinacao}°")),
+            # Linha 7
+            (('A7', 'Diâmetro:'), ('B7:C7', diametro), 
+             ('D7', 'Supervisor:'), ('E7:F7', supervisor), 
+             ('G7', 'UTM (N):'), ('H7:I7', utm_n), 
+             ('J7', 'Azimute:'), ('K7:L7', f"{azimute}°")),
+            # Linha 8
+            (('A8', 'Data Início:'), ('B8:C8', str(data_inicio)), 
+             ('D8', 'Geólogo Resp.:'), ('E8:F8', geologo), 
+             ('G8', 'Cota Z (m):'), ('H8:I8', cota_z), 
+             ('J8', 'Datum:'), ('K8:L8', datum)),
+            # Linha 9
+            (('A9', 'Data Fim:'), ('B9:C9', str(data_fim)), 
+             ('D9', 'Sondador:'), ('E9:F9', sondador), 
+             ('G9', 'Prof. Total (m):'), ('H9:I9', prof_max_val), 
+             ('J9', 'GPS (Lat/Lon):'), ('K9:L9', f"{lat_furo:.5f}, {lon_furo:.5f}"))
         ]
 
-        row_idx = 5
-        for linha in dados_cabecalho:
-            cols = [('A', 'B'), ('D', 'E'), ('G', 'H'), ('J', 'K')]
-            for idx, (rotulo, valor) in enumerate(linha):
-                col_r, col_v = cols[idx]
-                
-                # Rótulo
-                ws[f'{col_r}{row_idx}'] = rotulo
-                ws[f'{col_r}{row_idx}'].font = font_rotulo
-                ws[f'{col_r}{row_idx}'].alignment = Alignment(horizontal='right', vertical='center')
-                
-                # Valor
-                ws[f'{col_v}{row_idx}'] = valor
-                ws[f'{col_v}{row_idx}'].font = font_valor
-                ws[f'{col_v}{row_idx}'].alignment = Alignment(horizontal='left', vertical='center')
-                ws[f'{col_v}{row_idx}'].fill = fill_info
-                ws[f'{col_v}{row_idx}'].border = border_fina
-            row_idx += 1
+        for linha in matriz_cabecalho:
+            for cell_r, cell_v in [(linha[0], linha[1]), (linha[2], linha[3]), (linha[4], linha[5]), (linha[6], linha[7])]:
+                r_pos, r_text = cell_r
+                v_range, v_val = cell_v
 
-        # 3. SEÇÃO 2: TABELA DE MANOBRAS E GEOTECNIA
-        ws.merge_cells('A10:L10')
-        ws['A10'] = " 2. REGISTRO DE MANOBRAS E GEOTECNIA"
-        ws['A10'].font = font_secao
-        ws['A10'].fill = fill_azul_escuro
-        ws['A10'].alignment = Alignment(horizontal='left', vertical='center')
+                ws[r_pos] = r_text
+                ws[r_pos].font = font_rotulo
+                ws[r_pos].alignment = Alignment(horizontal='right', vertical='center')
+
+                v_pos = v_range.split(':')[0]
+                ws.merge_cells(v_range)
+                ws[v_pos] = v_val
+                ws[v_pos].font = font_valor
+                ws[v_pos].alignment = Alignment(horizontal='left', vertical='center')
+
+        # 3. SEÇÃO 2: TABELA DE MANOBRAS E GEOTECNIA (Linha 11+)
+        ws.merge_cells('A11:L11')
+        ws['A11'] = " 2. REGISTRO DE MANOBRAS E GEOTECNIA"
+        ws['A11'].font = font_secao
+        ws['A11'].fill = fill_azul_escuro
+        ws['A11'].alignment = Alignment(horizontal='left', vertical='center')
 
         df_excel = df_manobras.drop(columns=['Foto'])
         headers = list(df_excel.columns)
-        
-        # Cabeçalho da Tabela
+
+        # Cabeçalho da Tabela (Linha 12)
         for col_idx, col_name in enumerate(headers, 1):
-            cell = ws.cell(row=11, column=col_idx, value=col_name)
+            cell = ws.cell(row=12, column=col_idx, value=col_name)
             cell.font = font_cabecalho_tab
             cell.fill = fill_azul_escuro
             cell.alignment = Alignment(horizontal='center', vertical='center')
 
-        # Preenchimento dos Dados das Manobras
-        start_row = 12
+        # Preenchimento de Manobras (A partir da Linha 13)
+        start_row = 13
         for r_idx, row in df_excel.iterrows():
             curr_row = start_row + r_idx
-            ws.append(list(row.values))
-            fill_curr = fill_zebrado if curr_row % 2 == 0 else PatternFill(fill_type=None)
-            for c_idx in range(1, len(headers) + 1):
-                cell = ws.cell(row=curr_row, column=c_idx)
+            for c_idx, val in enumerate(row.values, 1):
+                cell = ws.cell(row=curr_row, column=c_idx, value=val)
                 cell.font = font_dados
                 cell.border = border_fina
-                cell.fill = fill_curr
                 cell.alignment = Alignment(horizontal='center', vertical='center')
+                if curr_row % 2 == 0:
+                    cell.fill = fill_zebrado
 
-        # Autoajuste da Largura das Colunas
+        # Linha de Totais/Médias (Abaixo das Manobras)
+        tot_row = start_row + len(df_excel) + 1
+        ws.cell(row=tot_row, column=1, value="TOTAL / MÉDIA").font = font_totais
+        ws.cell(row=tot_row, column=4, value=df_excel['Avanço (m)'].sum()).font = font_totais
+        ws.cell(row=tot_row, column=5, value=df_excel['Rec. (m)'].sum()).font = font_totais
+        ws.cell(row=tot_row, column=6, value=round(df_excel['Rec (%)'].mean(), 1)).font = font_totais
+        ws.cell(row=tot_row, column=7, value=df_excel['RQD (m)'].sum()).font = font_totais
+        ws.cell(row=tot_row, column=8, value=round(df_excel['RQD (%)'].mean(), 1)).font = font_totais
+
+        for c_idx in range(1, 13):
+            cell = ws.cell(row=tot_row, column=c_idx)
+            cell.border = border_fina
+            cell.alignment = Alignment(horizontal='center', vertical='center')
+
+        # Assinaturas no Rodapé do Excel
+        sig_line_row = tot_row + 4
+        sig_text_row = sig_line_row + 1
+
+        ws.merge_cells(f'B{sig_line_row}:E{sig_line_row}')
+        ws[f'B{sig_line_row}'] = "________________________________________"
+        ws[f'B{sig_line_row}'].alignment = Alignment(horizontal='center')
+
+        ws.merge_cells(f'H{sig_line_row}:K{sig_line_row}')
+        ws[f'H{sig_line_row}'] = "________________________________________"
+        ws[f'H{sig_line_row}'].alignment = Alignment(horizontal='center')
+
+        ws.merge_cells(f'B{sig_text_row}:E{sig_text_row}')
+        ws[f'B{sig_text_row}'] = f"Geólogo Resp.: {geologo}"
+        ws[f'B{sig_text_row}'].font = font_rotulo
+        ws[f'B{sig_text_row}'].alignment = Alignment(horizontal='center')
+
+        ws.merge_cells(f'H{sig_text_row}:K{sig_text_row}')
+        ws[f'H{sig_text_row}'] = f"Supervisor/Coordenador: {supervisor}"
+        ws[f'H{sig_text_row}'].font = font_rotulo
+        ws[f'H{sig_text_row}'].alignment = Alignment(horizontal='center')
+
+        # Ajuste de Larguras de Coluna
         for col in ws.columns:
             max_len = max(len(str(cell.value or '')) for cell in col)
             col_letter = get_column_letter(col[0].column)
@@ -538,7 +598,7 @@ if st.session_state['manobras']:
         st.download_button(
             label="📄 Baixar Boletim Oficial (.xlsx)",
             data=buffer_xls.getvalue(),
-            file_name=f"Boletim_{furo_id}.xlsx",
+            file_name=f"Boletim_Oficial_{furo_id}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             use_container_width=True
         )
