@@ -7,3 +7,4 @@ streamlit-folium
 reportlab
 Pillow
 streamlit-drawable-canvas
+streamlit-javascript
