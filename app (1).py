@@ -149,10 +149,10 @@ with st.expander("🌐 Dados Geográficos, GPS e Parâmetros do Furo", expanded=
     with col_gps2:
         lon_furo = st.number_input("Longitude (ex: -36.512345)", value=-36.512345, format="%.6f")
     
-    # Renderização com Folium (Satélite Esri World Imagery - Sem travamento)
+    # Renderização via Folium (Imagens de Satélite Esri World Imagery)
     m = folium.Map(location=[lat_furo, lon_furo], zoom_start=16, tiles=None)
 
-    # Camada de Satélite de alta resolução
+    # Camada de Satélite de Alta Resolução
     folium.TileLayer(
         tiles='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
         attr='Esri World Imagery',
@@ -161,7 +161,7 @@ with st.expander("🌐 Dados Geográficos, GPS e Parâmetros do Furo", expanded=
         control=True
     ).add_to(m)
 
-    # Camada Terreno / Topografia
+    # Camada de Terreno / Vias
     folium.TileLayer(
         tiles='OpenStreetMap',
         name='Mapa de Ruas/Topografia',
@@ -169,7 +169,7 @@ with st.expander("🌐 Dados Geográficos, GPS e Parâmetros do Furo", expanded=
         control=True
     ).add_to(m)
 
-    # Adiciona o Marcador do Furo no Mapa
+    # Marcador Oficial do Furo
     folium.Marker(
         [lat_furo, lon_furo],
         popup=f"<b>Furo: {furo_id}</b><br>Lat: {lat_furo}<br>Lon: {lon_furo}<br>Cota: {cota_z}m",
@@ -177,7 +177,7 @@ with st.expander("🌐 Dados Geográficos, GPS e Parâmetros do Furo", expanded=
         icon=folium.Icon(color='red', icon='info-sign')
     ).add_to(m)
 
-    # Círculo de área ao redor do furo
+    # Círculo de Projeção da Área do Furo
     folium.Circle(
         radius=30,
         location=[lat_furo, lon_furo],
@@ -189,7 +189,7 @@ with st.expander("🌐 Dados Geográficos, GPS e Parâmetros do Furo", expanded=
 
     folium.LayerControl().add_to(m)
 
-    # Exibe no Streamlit de forma fluida
+    # Exibição Fluida no Streamlit
     st_folium(m, width="100%", height=450)
 
 st.markdown("---")
