@@ -184,13 +184,19 @@ if btn_adicionar:
         pct_rec = min(100.0, round((rec / avanco) * 100, 1)) if avanco > 0 else 0.0
         pct_rqd = min(100.0, round((rqd / avanco) * 100, 1)) if avanco > 0 else 0.0
         
+        if pct_rqd < 25: rqd_class = 'Muito Pobre'
+        elif pct_rqd < 50: rqd_class = 'Pobre'
+        elif pct_rqd < 75: rqd_class = 'Razoável'
+        elif pct_rqd < 90: rqd_class = 'Boa'
+        else: rqd_class = 'Excelente'
+
         st.session_state['manobras'].append({
             'Manobra': len(st.session_state['manobras']) + 1,
             'De (m)': de, 'Para (m)': para, 'Avanço (m)': avanco,
             'Rec. (m)': rec, 'Rec (%)': pct_rec, 'RQD (m)': rqd,
-            'RQD (%)': pct_rqd, 'Litologia': litologia, 
-            'Alteração': alteracao, 'Observações': obs,
-            'Foto': img_capturada
+            'RQD (%)': pct_rqd, 'Qualidade RQD': rqd_class,
+            'Litologia': litologia, 'Alteração': alteracao, 
+            'Observações': obs, 'Foto': img_capturada
         })
         st.success("✅ Manobra e Foto registradas com sucesso!")
         st.rerun()
@@ -213,7 +219,7 @@ if st.session_state['manobras']:
 
 st.markdown("---")
 
-# 3. TABELA CONSOLIDADA E GERADOR DE RELATÓRIOS (EXCEL E PDF)
+# 3. TABELA CONSOLIDADA E GERADOR DE RELATÓRIOS (EXCEL FORMATEDO E PDF)
 st.header("3. Relatórios e Assinatura Digital")
 
 if st.session_state['manobras']:
@@ -271,21 +277,142 @@ if st.session_state['manobras']:
 
     col_exp1, col_exp2 = st.columns(2)
 
-    # EXPORTAÇÃO EXCEL
+    # EXPORTAÇÃO EXCEL FORMATEDO PROFISSIONALMENTE
     with col_exp1:
         buffer_xls = io.BytesIO()
         wb = openpyxl.Workbook()
         ws = wb.active
         ws.title = "Boletim de Sondagem"
-        ws.append(["ID Furo", "De (m)", "Para (m)", "Rec (%)", "RQD (%)", "Litologia", "Observações"])
-        for _, r in df_manobras.iterrows():
-            ws.append([furo_id, r['De (m)'], r['Para (m)'], r['Rec (%)'], r['RQD (%)'], r['Litologia'], r['Observações']])
+        ws.views.sheetView[0].showGridLines = True
+
+        font_titulo = Font(name='Calibri', size=16, bold=True, color='1F497D')
+        font_subtitulo = Font(name='Calibri', size=11, bold=True, color='595959')
+        font_secao = Font(name='Calibri', size=11, bold=True, color='FFFFFF')
+        font_cabecalho_tab = Font(name='Calibri', size=10, bold=True, color='FFFFFF')
+        font_dados = Font(name='Calibri', size=10)
+        font_bold = Font(name='Calibri', size=10, bold=True)
+        
+        fill_azul_escuro = PatternFill(start_color='1F497D', end_color='1F497D', fill_type='solid')
+        fill_cinza_secao = PatternFill(start_color='595959', end_color='595959', fill_type='solid')
+        fill_zebrado = PatternFill(start_color='F2F5F9', end_color='F2F5F9', fill_type='solid')
+        fill_logo_box = PatternFill(start_color='E9EEF4', end_color='E9EEF4', fill_type='solid')
+        
+        border_fina = Border(left=Side(style='thin', color='D9D9D9'), right=Side(style='thin', color='D9D9D9'),
+                             top=Side(style='thin', color='D9D9D9'), bottom=Side(style='thin', color='D9D9D9'))
+        
+        align_center = Alignment(horizontal='center', vertical='center')
+        align_left = Alignment(horizontal='left', vertical='center')
+        align_right = Alignment(horizontal='right', vertical='center')
+
+        ws.merge_cells('A1:C3')
+        ws['A1'] = " Espaço Reservado\n para LOGO MARCA\n da Empresa"
+        ws['A1'].font = Font(name='Calibri', size=9, italic=True, color='595959')
+        ws['A1'].fill = fill_logo_box
+        ws['A1'].alignment = align_center
+
+        ws.merge_cells('D1:L2')
+        ws['D1'] = "BOLETIM TÉCNICO DE SONDAGEM GEOLÓGICA"
+        ws['D1'].font = font_titulo
+        ws['D1'].alignment = align_center
+
+        ws.merge_cells('D3:L3')
+        ws['D3'] = f"EMPRESA: {empresa.upper()} | PROJETO: {projeto.upper()}"
+        ws['D3'].font = font_subtitulo
+        ws['D3'].alignment = align_center
+
+        ws.merge_cells('A5:L5')
+        ws['A5'] = " 1. DADOS DE GESTÃO, EQUIPE E LOCALIZAÇÃO DO FURO"
+        ws['A5'].font = font_secao
+        ws['A5'].fill = fill_cinza_secao
+        ws['A5'].alignment = align_left
+
+        painel_dados = [
+            [("ID do Furo:", furo_id), ("Coordenador:", coordenador), ("UTM (E):", utm_e), ("Inclinação:", f"{inclinacao}°")],
+            [("Diâmetro:", diametro), ("Supervisor:", supervisor), ("UTM (N):", utm_n), ("Azimute:", f"{azimute}°")],
+            [("Data Início:", str(data_inicio)), ("Geólogo Resp.:", geologo), ("Cota Z (m):", cota_z), ("Datum:", datum)],
+            [("Data Fim:", str(data_fim)), ("Sondador:", sondador), ("Prof. Total (m):", df_manobras['Para (m)'].max()), ("GPS (Lat/Lon):", f"{lat_furo:.5f}, {lon_furo:.5f}")]
+        ]
+
+        for row_offset, linha in enumerate(painel_dados, start=6):
+            cols_pos = [(1, 2, 3), (4, 5, 6), (7, 8, 9), (10, 11, 12)]
+            for idx, (label, val) in enumerate(linha):
+                c_lbl, c_val1, c_val2 = cols_pos[idx]
+                ws.cell(row=row_offset, column=c_lbl, value=label).font = font_bold
+                ws.cell(row=row_offset, column=c_lbl).alignment = align_right
+                
+                ws.merge_cells(start_row=row_offset, start_column=c_val1, end_row=row_offset, end_column=c_val2)
+                cell_val = ws.cell(row=row_offset, column=c_val1, value=val)
+                cell_val.font = font_dados
+                cell_val.alignment = align_left
+                cell_val.border = border_fina
+
+        ws.merge_cells('A11:L11')
+        ws['A11'] = " 2. REGISTRO DE MANOBRAS E GEOTECNIA"
+        ws['A11'].font = font_secao
+        ws['A11'].fill = fill_azul_escuro
+        ws['A11'].alignment = align_left
+
+        df_excel = df_manobras.drop(columns=['Foto'])
+        headers = list(df_excel.columns)
+        for col_idx, col_name in enumerate(headers, 1):
+            cell = ws.cell(row=12, column=col_idx, value=col_name)
+            cell.font = font_cabecalho_tab
+            cell.fill = fill_azul_escuro
+            cell.alignment = align_center
+
+        start_row = 13
+        for r_idx, row in df_excel.iterrows():
+            curr_row = start_row + r_idx
+            ws.append(list(row.values))
+            fill_curr = fill_zebrado if curr_row % 2 == 0 else PatternFill(fill_type=None)
+            
+            for c_idx in range(1, len(headers) + 1):
+                cell = ws.cell(row=curr_row, column=c_idx)
+                cell.font = font_dados
+                cell.border = border_fina
+                cell.fill = fill_curr
+                cell.alignment = align_center
+                
+                if headers[c_idx-1] in ['De (m)', 'Para (m)', 'Avanço (m)', 'Rec. (m)', 'RQD (m)']:
+                    cell.number_format = '0.00'
+                elif headers[c_idx-1] in ['Rec (%)', 'RQD (%)']:
+                    cell.number_format = '0.0"%"'
+
+        tot_row = start_row + len(df_excel)
+        ws.cell(row=tot_row + 1, column=1, value="TOTAL / MÉDIA").font = font_bold
+        ws.cell(row=tot_row + 1, column=4, value=df_excel['Avanço (m)'].sum()).font = font_bold
+        ws.cell(row=tot_row + 1, column=4).number_format = '0.00'
+        ws.cell(row=tot_row + 1, column=5, value=df_excel['Rec. (m)'].sum()).font = font_bold
+        ws.cell(row=tot_row + 1, column=5).number_format = '0.00'
+        ws.cell(row=tot_row + 1, column=6, value=df_excel['Rec (%)'].mean()).font = font_bold
+        ws.cell(row=tot_row + 1, column=6).number_format = '0.0"%"'
+        ws.cell(row=tot_row + 1, column=8, value=df_excel['RQD (%)'].mean()).font = font_bold
+        ws.cell(row=tot_row + 1, column=8).number_format = '0.0"%"'
+
+        ass_row = tot_row + 5
+        ws.merge_cells(start_row=ass_row, start_column=2, end_row=ass_row, end_column=5)
+        ws.cell(row=ass_row, column=2, value="________________________________________").alignment = align_center
+        ws.merge_cells(start_row=ass_row+1, start_column=2, end_row=ass_row+1, end_column=5)
+        ws.cell(row=ass_row+1, column=2, value=f"Geólogo Resp.: {geologo}").font = font_bold
+        ws.cell(row=ass_row+1, column=2).alignment = align_center
+
+        ws.merge_cells(start_row=ass_row, start_column=8, end_row=ass_row, end_column=11)
+        ws.cell(row=ass_row, column=8, value="________________________________________").alignment = align_center
+        ws.merge_cells(start_row=ass_row+1, start_column=8, end_row=ass_row+1, end_column=11)
+        ws.cell(row=ass_row+1, column=8, value=f"Supervisor/Coordenador: {supervisor}").font = font_bold
+        ws.cell(row=ass_row+1, column=8).alignment = align_center
+
+        for col in ws.columns:
+            max_len = max(len(str(cell.value or '')) for cell in col)
+            col_letter = get_column_letter(col[0].column)
+            ws.column_dimensions[col_letter].width = max(max_len + 3, 11)
+
         wb.save(buffer_xls)
         
         st.download_button(
-            label="📊 Baixar Excel (.xlsx)",
+            label="📄 Baixar Boletim Oficial (.xlsx)",
             data=buffer_xls.getvalue(),
-            file_name=f"Boletim_{furo_id}.xlsx",
+            file_name=f"Boletim_Oficial_{furo_id}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             use_container_width=True
         )
