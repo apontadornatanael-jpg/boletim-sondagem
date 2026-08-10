@@ -65,6 +65,13 @@ st.markdown("""
         font-weight: 700 !important;
         width: 100%;
     }
+    /* Estilização personalizada para as métricas (KPIs) */
+    div[data-testid="stMetric"] {
+        background-color: #F8FAFC;
+        border: 1px solid #E2E8F0;
+        border-radius: 12px;
+        padding: 12px 16px;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -132,6 +139,48 @@ with st.expander("🌐 Coordenadas GPS e Mapa do Furo", expanded=True):
     ).add_to(m)
     folium.Marker([lat_furo, lon_furo], popup=f"Furo: {furo_id}", icon=folium.Icon(color='red')).add_to(m)
     st_folium(m, width="100%", height=350)
+
+# --- PAINEL DE INDICADORES RÁPIDOS (KPIs) ---
+st.markdown("---")
+st.subheader("📊 Indicadores de Progresso do Furo")
+
+if st.session_state['manobras']:
+    df_kpi = pd.DataFrame(st.session_state['manobras'])
+    prof_total = df_kpi['Para (m)'].max()
+    rec_media = df_kpi['Rec (%)'].mean()
+    rqd_medio = df_kpi['RQD (%)'].mean()
+    avanco_medio = df_kpi['Avanço (m)'].mean()
+
+    if rqd_medio < 25:
+        qualidade_geral = "Muito Pobre"
+    elif rqd_medio < 50:
+        qualidade_geral = "Pobre"
+    elif rqd_medio < 75:
+        qualidade_geral = "Razoável"
+    elif rqd_medio < 90:
+        qualidade_geral = "Boa"
+    else:
+        qualidade_geral = "Excelente"
+
+    col_kpi1, col_kpi2, col_kpi3, col_kpi4 = st.columns(4)
+    with col_kpi1:
+        st.metric(label="Profundidade Total", value=f"{prof_total:.2f} m", delta=f"{len(df_kpi)} manobra(s)")
+    with col_kpi2:
+        st.metric(label="Recuperação Média", value=f"{rec_media:.1f}%")
+    with col_kpi3:
+        st.metric(label="RQD Médio", value=f"{rqd_medio:.1f}%", delta=qualidade_geral)
+    with col_kpi4:
+        st.metric(label="Avanço Médio / Manobra", value=f"{avanco_medio:.2f} m")
+else:
+    col_kpi1, col_kpi2, col_kpi3, col_kpi4 = st.columns(4)
+    with col_kpi1:
+        st.metric(label="Profundidade Total", value="0.00 m")
+    with col_kpi2:
+        st.metric(label="Recuperação Média", value="0.0%")
+    with col_kpi3:
+        st.metric(label="RQD Médio", value="0.0%")
+    with col_kpi4:
+        st.metric(label="Avanço Médio / Manobra", value="0.00 m")
 
 st.markdown("---")
 
@@ -267,7 +316,7 @@ with col_off2:
             except Exception:
                 st.error("Erro ao ler o rascunho salvo no dispositivo.")
         else:
-            st.info("Nenhum rascunho encontrado no dispositivo.")
+            st.info("Nenum rascunho encontrado no dispositivo.")
 
 with col_off3:
     if st.button("📡 Sincronizar quando houver sinal", type="primary"):
@@ -275,7 +324,6 @@ with col_off3:
             st.warning("Não há dados locais para sincronizar.")
         else:
             with st.spinner("Enviando dados acumulados para a nuvem/banco de dados..."):
-                # Ponto de extensão para inserção em banco (Ex: Supabase, Google Sheets, PostgreSQL)
                 st.balloons()
                 st.success("🚀 Todos os registros foram sincronizados com sucesso!")
 
