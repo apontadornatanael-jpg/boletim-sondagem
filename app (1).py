@@ -11,35 +11,73 @@ from openpyxl.utils import get_column_letter
 
 import streamlit as st
 
-# Estilização para criar blocos/cartões coloridos no fundo
+# CSS Avançado: Design Charmoso e Interativo
 st.markdown("""
     <style>
-    /* Cartão de fundo claro para os blocos do formulário */
-    div[data-testid="stVerticalBlock"] > div {
-        background-color: #FFFFFF;
-        padding: 18px;
-        border-radius: 12px;
-        box-shadow: 0px 2px 8px rgba(0, 0, 0, 0.05);
+    /* 1. Estilização dos Cartões/Blocos do Formulário */
+    div[data-testid="stVerticalBlock"] > div[data-testid="stBlock"] {
+        background: #FFFFFF;
+        padding: 20px;
+        border-radius: 16px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
         border: 1px solid #E2E8F0;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
     }
     
-    /* Destacar o título principal com fundo azul suave */
+    /* Efeito de interatividade nos blocos ao passar o mouse */
+    div[data-testid="stVerticalBlock"] > div[data-testid="stBlock"]:hover {
+        box-shadow: 0 8px 25px rgba(2, 132, 199, 0.12);
+        border-color: #BAE6FD;
+    }
+
+    /* 2. Banner/Cabeçalho do Título */
     h1 {
-        color: #1E3A8A !important;
-        background-color: #EFF6FF;
-        padding: 12px 16px;
-        border-radius: 10px;
-        border-left: 6px solid #2563EB;
+        color: #0F172A !important;
+        background: linear-gradient(135deg, #E0F2FE 0%, #F0F9FF 100%);
+        padding: 16px 20px;
+        border-radius: 14px;
+        border-left: 6px solid #0284C7;
+        font-weight: 800 !important;
+        letter-spacing: -0.5px;
     }
-    
-    /* Estilo dos botões */
+
+    /* 3. Subtítulos Charmosos */
+    h2, h3 {
+        color: #0369A1 !important;
+        font-weight: 700 !important;
+    }
+
+    /* 4. Botões Interativos (Efeito de Clique/Hover) */
     .stButton > button {
-        background-color: #2563EB !important;
+        background: linear-gradient(135deg, #0284C7 0%, #0369A1 100%) !important;
         color: white !important;
-        font-size: 16px !important;
-        font-weight: bold !important;
+        border: none !important;
+        border-radius: 10px !important;
+        padding: 10px 24px !important;
+        font-weight: 700 !important;
+        font-size: 15px !important;
+        box-shadow: 0 4px 12px rgba(2, 132, 199, 0.3) !important;
+        transition: all 0.25s ease !important;
+        width: 100%;
+    }
+
+    /* Efeito Hover do Botão */
+    .stButton > button:hover {
+        transform: translateY(-2px) !important;
+        box-shadow: 0 6px 18px rgba(2, 132, 199, 0.45) !important;
+        background: linear-gradient(135deg, #0369A1 0%, #075985 100%) !important;
+    }
+
+    /* 5. Inputs / Campos de Entrada com Borda Colorida */
+    .stTextInput input, .stNumberInput input, .stSelectbox select {
         border-radius: 8px !important;
-        padding: 8px 16px !important;
+        border: 1.5px solid #CBD5E1 !important;
+        transition: border-color 0.2s ease !important;
+    }
+
+    .stTextInput input:focus, .stNumberInput input:focus {
+        border-color: #0284C7 !important;
+        box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.2) !important;
     }
     </style>
 """, unsafe_allow_html=True)
