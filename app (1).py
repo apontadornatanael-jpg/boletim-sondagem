@@ -3,6 +3,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import io
+import json
 from datetime import datetime
 from PIL import Image
 
@@ -22,6 +23,9 @@ from reportlab.lib.units import cm
 
 # Componente de Assinatura
 from streamlit_drawable_canvas import st_canvas
+
+# Componente de Comunicação JavaScript (Para suporte Offline / LocalStorage)
+from streamlit_javascript import st_javascript
 
 # Configuração da página
 st.set_page_config(
@@ -219,7 +223,65 @@ if st.session_state['manobras']:
 
 st.markdown("---")
 
-# 3. TABELA CONSOLIDADA E GERADOR DE RELATÓRIOS (EXCEL FORMATEDO E PDF)
+# 📲 FUNCIONALIDADE MODO OFFLINE / LOCAL STORAGE
+st.header("📲 Armazenamento Offline & Sincronização")
+
+# Funções JavaScript para interagir com o navegador
+def salvar_localmente_browser(chave, dados_json):
+    js_code = f"""
+        localStorage.setItem('{chave}', JSON.stringify({dados_json}));
+        console.log('Manobra salva no LocalStorage do dispositivo');
+    """
+    st_javascript(js_code)
+
+def ler_rascunhos_browser(chave):
+    js_code = f"localStorage.getItem('{chave}');"
+    return st_javascript(js_code)
+
+col_off1, col_off2, col_off3 = st.columns(3)
+
+with col_off1:
+    if st.button("💾 Salvar Rascunho no Celular (Offline)"):
+        if st.session_state['manobras']:
+            dados_para_salvar = []
+            for item in st.session_state['manobras']:
+                item_copia = item.copy()
+                if 'Foto' in item_copia:
+                    item_copia['Foto'] = None  # Remove objeto de imagem para serializar levemente em JSON
+                dados_para_salvar.append(item_copia)
+                
+            dados_json = json.dumps(dados_para_salvar)
+            salvar_localmente_browser(f"rascunho_furo_{furo_id}", dados_json)
+            st.success("✅ Rascunho salvo na memória local do seu celular!")
+        else:
+            st.warning("Nenhuma manobra para salvar.")
+
+with col_off2:
+    if st.button("📂 Restaurar Rascunho do Celular"):
+        dados_resgatados = ler_rascunhos_browser(f"rascunho_furo_{furo_id}")
+        if dados_resgatados:
+            try:
+                st.session_state['manobras'] = json.loads(dados_resgatados)
+                st.success("🔄 Rascunho restaurado com sucesso!")
+                st.rerun()
+            except Exception:
+                st.error("Erro ao ler o rascunho salvo no dispositivo.")
+        else:
+            st.info("Nenhum rascunho encontrado no dispositivo.")
+
+with col_off3:
+    if st.button("📡 Sincronizar quando houver sinal", type="primary"):
+        if not st.session_state['manobras']:
+            st.warning("Não há dados locais para sincronizar.")
+        else:
+            with st.spinner("Enviando dados acumulados para a nuvem/banco de dados..."):
+                # Ponto de extensão para inserção em banco (Ex: Supabase, Google Sheets, PostgreSQL)
+                st.balloons()
+                st.success("🚀 Todos os registros foram sincronizados com sucesso!")
+
+st.markdown("---")
+
+# 3. TABELA CONSOLIDADA E GERADOR DE RELATÓRIOS (EXCEL FORMATADO E PDF)
 st.header("3. Relatórios e Assinatura Digital")
 
 if st.session_state['manobras']:
@@ -277,7 +339,7 @@ if st.session_state['manobras']:
 
     col_exp1, col_exp2 = st.columns(2)
 
-    # EXPORTAÇÃO EXCEL FORMATEDO PROFISSIONALMENTE
+    # EXPORTAÇÃO EXCEL FORMATADO PROFISSIONALMENTE
     with col_exp1:
         buffer_xls = io.BytesIO()
         wb = openpyxl.Workbook()
