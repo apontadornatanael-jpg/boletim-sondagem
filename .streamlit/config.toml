@@ -2,5 +2,5 @@
 primaryColor = "#0284C7"              # Azul Oceano vibrante (botões e seletores)
 backgroundColor = "#F8FAFC"           # Fundo geral cinza/azul clarinho
 secondaryBackgroundColor = "#F1F5F9"  # Fundo suave para os blocos secundários
-textColor = "#0F172A"                 # Texto azul-escuro profundo (leitura perfeita)
+textColor = "#0F182A"                 # Texto azul-escuro profundo (leitura perfeita)
 font = "sans serif"
