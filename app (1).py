@@ -9,7 +9,12 @@ import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 
-import streamlit as st
+# Configuração da página
+st.set_page_config(
+    page_title="Boletim de Sondagem Mineral",
+    page_icon="⛏️",
+    layout="wide"
+)
 
 # CSS Avançado: Design Charmoso e Interativo
 st.markdown("""
@@ -82,12 +87,6 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.set_page_config(
-    page_title="Boletim de Sondagem Mineral",
-    page_icon="⛏️",
-    layout="wide"
-)
-
 CORES_LITOLOGIA = {
     'Solo / Cobertura': '#D2B48C',
     'Siltito / Argilito': '#A0522D',
@@ -123,7 +122,7 @@ with col_g4:
     furo_id = st.text_input("ID do Furo", value="F-001")
     diametro = st.selectbox("Diâmetro", ['HQ (63.5mm)', 'NQ (47.6mm)', 'BQ (36.5mm)', 'RC (Circ. Reversa)', 'Outro'])
 
-with st.expander("🌐 Dados Geográficos e Parâmetros do Furo (Opcional)", expanded=False):
+with st.expander("🌐 Dados Geográficos, GPS e Parâmetros do Furo", expanded=True):
     col_geo1, col_geo2, col_geo3, col_geo4 = st.columns(4)
     with col_geo1:
         utm_e = st.number_input("Coordenada UTM (E)", value=250100.0, format="%.2f")
@@ -137,6 +136,19 @@ with st.expander("🌐 Dados Geográficos e Parâmetros do Furo (Opcional)", exp
     with col_geo4:
         data_inicio = st.date_input("Data de Início", value=datetime.now())
         data_fim = st.date_input("Data de Término", value=datetime.now())
+
+    st.markdown("---")
+    st.subheader("📍 Coordenadas Geográficas (GPS) & Mapa do Furo")
+    
+    col_gps1, col_gps2 = st.columns(2)
+    with col_gps1:
+        lat_furo = st.number_input("Latitude (ex: -6.512345)", value=-6.512345, format="%.6f")
+    with col_gps2:
+        lon_furo = st.number_input("Longitude (ex: -36.512345)", value=-36.512345, format="%.6f")
+    
+    # Exibição do Mapa Interativo com a Posição do Furo
+    df_gps = pd.DataFrame({'lat': [lat_furo], 'lon': [lon_furo]})
+    st.map(df_gps, zoom=14)
 
 st.markdown("---")
 
@@ -273,7 +285,7 @@ if st.session_state['manobras']:
         [("ID do Furo:", furo_id), ("Coordenador:", coordenador), ("UTM (E):", utm_e), ("Inclinação:", f"{inclinacao}°")],
         [("Diâmetro:", diametro), ("Supervisor:", supervisor), ("UTM (N):", utm_n), ("Azimute:", f"{azimute}°")],
         [("Data Início:", str(data_inicio)), ("Geólogo Resp.:", geologo), ("Cota Z (m):", cota_z), ("Datum:", datum)],
-        [("Data Fim:", str(data_fim)), ("Sondador:", sondador), ("Prof. Total (m):", df_manobras['Para (m)'].max()), ("-", "-")]
+        [("Data Fim:", str(data_fim)), ("Sondador:", sondador), ("Prof. Total (m):", df_manobras['Para (m)'].max()), ("GPS (Lat/Lon):", f"{lat_furo:.5f}, {lon_furo:.5f}")]
     ]
 
     for row_offset, linha in enumerate(painel_dados, start=6):
