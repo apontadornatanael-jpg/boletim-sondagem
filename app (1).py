@@ -9,6 +9,41 @@ import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 
+import streamlit as st
+
+# Estilização para criar blocos/cartões coloridos no fundo
+st.markdown("""
+    <style>
+    /* Cartão de fundo claro para os blocos do formulário */
+    div[data-testid="stVerticalBlock"] > div {
+        background-color: #FFFFFF;
+        padding: 18px;
+        border-radius: 12px;
+        box-shadow: 0px 2px 8px rgba(0, 0, 0, 0.05);
+        border: 1px solid #E2E8F0;
+    }
+    
+    /* Destacar o título principal com fundo azul suave */
+    h1 {
+        color: #1E3A8A !important;
+        background-color: #EFF6FF;
+        padding: 12px 16px;
+        border-radius: 10px;
+        border-left: 6px solid #2563EB;
+    }
+    
+    /* Estilo dos botões */
+    .stButton > button {
+        background-color: #2563EB !important;
+        color: white !important;
+        font-size: 16px !important;
+        font-weight: bold !important;
+        border-radius: 8px !important;
+        padding: 8px 16px !important;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
 st.set_page_config(
     page_title="Boletim de Sondagem Mineral",
     page_icon="⛏️",
