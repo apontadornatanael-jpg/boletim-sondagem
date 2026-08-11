@@ -14,7 +14,7 @@ import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 
-# ReportLab para geração de PDF Profissional e Completo
+# ReportLab para geração de PDF Profissional, Imagens e Tabelas
 from reportlab.lib.pagesizes import A4, portrait
 from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image as RLImage, PageBreak, HRFlowable
@@ -195,7 +195,6 @@ with col_l2:
 with col_l3:
     obs = st.text_input("Observações Geotécnicas", placeholder="Ex: RPT, Fraturado, veios de quartzo...")
 
-# ANEXO DE FOTO / CÂMERA DO CELULAR
 st.subheader("📷 Registro Fotográfico da Amostra / Caixa")
 aba_cam, aba_up = st.tabs(["📸 Tirar Foto Agora (Câmera)", "📁 Carregar da Galeria"])
 
@@ -312,8 +311,7 @@ st.header("3. Perfil Litológico Visual e Tabela Consolidada")
 if st.session_state['manobras']:
     df_manobras = pd.DataFrame(st.session_state['manobras'])
     
-    # --- PERFIL LITOLÓGICO VISUAL COM HACHURAS E EIXOS GEOTÉCNICOS ---
-    st.subheader("🪨 Perfil Litológico e Curva de RQD (Atualização Automática)")
+    st.subheader("🪨 Perfil Litológico e Curva de RQD")
     
     plt.rcParams['hatch.linewidth'] = 1.2
     plt.rcParams['hatch.color'] = '#333333'
@@ -324,7 +322,7 @@ if st.session_state['manobras']:
     )
     
     prof_max = df_manobras['Para (m)'].max()
-    ax_lito.set_ylim(prof_max, 0) # Inverte eixo para profundidade crescer para baixo
+    ax_lito.set_ylim(prof_max, 0)
 
     litos_usadas = set()
 
@@ -338,7 +336,6 @@ if st.session_state['manobras']:
         info_lito = DADOS_LITOLOGIA.get(lito, {'cor': '#808080', 'hatch': ''})
         litos_usadas.add(lito)
 
-        # 1. Desenha o Bloco da Litologia
         rect = mpatches.Rectangle(
             (0, de_m), 1, para_m - de_m,
             facecolor=info_lito['cor'],
@@ -347,7 +344,6 @@ if st.session_state['manobras']:
             linewidth=1.2
         )
         ax_lito.add_patch(rect)
-        
         ax_lito.axhline(para_m, color='#0F172A', linestyle='--', linewidth=0.8)
 
         texto_bloco = f"{lito}\n({de_m:.1f}m - {para_m:.1f}m)"
@@ -357,49 +353,34 @@ if st.session_state['manobras']:
             bbox=dict(boxstyle='round,pad=0.2', facecolor='#FFFFFF', alpha=0.85, edgecolor='#94A3B8')
         )
 
-        # 2. RQD Colorido
         if rqd_val < 25: color_rqd = '#EF4444'
         elif rqd_val < 50: color_rqd = '#F97316'
         elif rqd_val < 75: color_rqd = '#EAB308'
         elif rqd_val < 90: color_rqd = '#3B82F6'
         else: color_rqd = '#22C55E'
 
-        ax_rqd.barh(
-            y=de_m + (para_m - de_m)/2, width=rqd_val, 
-            height=(para_m - de_m)*0.8, color=color_rqd, edgecolor='black', linewidth=0.8
-        )
+        ax_rqd.barh(y=de_m + (para_m - de_m)/2, width=rqd_val, height=(para_m - de_m)*0.8, color=color_rqd, edgecolor='black', linewidth=0.8)
         ax_rqd.axhline(para_m, color='#CBD5E1', linestyle=':', linewidth=0.8)
 
-        # 3. Recuperação
-        ax_rec.barh(
-            y=de_m + (para_m - de_m)/2, width=rec_val, 
-            height=(para_m - de_m)*0.8, color='#0284C7', edgecolor='black', linewidth=0.8
-        )
+        ax_rec.barh(y=de_m + (para_m - de_m)/2, width=rec_val, height=(para_m - de_m)*0.8, color='#0284C7', edgecolor='black', linewidth=0.8)
         ax_rec.axhline(para_m, color='#CBD5E1', linestyle=':', linewidth=0.8)
 
-    # Ajustes Eixo Litologia
     ax_lito.set_xlim(0, 1)
     ax_lito.set_title("Estratigrafia / Perfil", fontsize=11, fontweight='bold', color='#0369A1')
     ax_lito.set_ylabel("Profundidade (m)", fontsize=10, fontweight='bold')
     ax_lito.get_xaxis().set_visible(False)
 
     patches_legenda = [
-        mpatches.Patch(
-            facecolor=DADOS_LITOLOGIA[l]['cor'], 
-            hatch=DADOS_LITOLOGIA[l]['hatch'], 
-            edgecolor='black', 
-            label=l
-        ) for l in litos_usadas
+        mpatches.Patch(facecolor=DADOS_LITOLOGIA[l]['cor'], hatch=DADOS_LITOLOGIA[l]['hatch'], edgecolor='black', label=l) 
+        for l in litos_usadas
     ]
     ax_lito.legend(handles=patches_legenda, loc='upper center', bbox_to_anchor=(0.5, -0.08), ncol=1, fontsize=8, frameon=True)
 
-    # Ajustes Eixo RQD
     ax_rqd.set_xlim(0, 105)
     ax_rqd.set_title("RQD (%)", fontsize=11, fontweight='bold', color='#0369A1')
     ax_rqd.set_xlabel("%", fontsize=9)
     ax_rqd.grid(True, linestyle='--', alpha=0.5)
 
-    # Ajustes Eixo Recuperação
     ax_rec.set_xlim(0, 105)
     ax_rec.set_title("Recuperação (%)", fontsize=11, fontweight='bold', color='#0369A1')
     ax_rec.set_xlabel("%", fontsize=9)
@@ -410,7 +391,6 @@ if st.session_state['manobras']:
 
     st.markdown("---")
 
-    # Exibição da Tabela de Manobras
     st.dataframe(
         df_manobras.drop(columns=['Foto']).style.format({
             'De (m)': '{:.2f}', 'Para (m)': '{:.2f}', 'Avanço (m)': '{:.2f}',
@@ -427,7 +407,7 @@ if st.session_state['manobras']:
 
     col_exp1, col_exp2 = st.columns(2)
 
-    # EXPORTAÇÃO EXCEL IDENTICA AO MODELO OFICIAL
+    # EXPORTAÇÃO EXCEL
     with col_exp1:
         buffer_xls = io.BytesIO()
         wb = openpyxl.Workbook()
@@ -435,7 +415,6 @@ if st.session_state['manobras']:
         ws.title = "Boletim de Sondagem"
         ws.views.sheetView[0].showGridLines = True
 
-        # Estilos idênticos ao Modelo
         font_titulo = Font(name='Calibri', size=16, bold=True, color='1F497D')
         font_subtitulo = Font(name='Calibri', size=11, bold=True, color='595959')
         font_logo = Font(name='Calibri', size=9, bold=False, color='595959')
@@ -452,13 +431,10 @@ if st.session_state['manobras']:
         fill_zebrado = PatternFill(start_color='F2F5F9', end_color='F2F5F9', fill_type='solid')
 
         border_fina = Border(
-            left=Side(style='thin', color='D9D9D9'),
-            right=Side(style='thin', color='D9D9D9'),
-            top=Side(style='thin', color='D9D9D9'),
-            bottom=Side(style='thin', color='D9D9D9')
+            left=Side(style='thin', color='D9D9D9'), right=Side(style='thin', color='D9D9D9'),
+            top=Side(style='thin', color='D9D9D9'), bottom=Side(style='thin', color='D9D9D9')
         )
 
-        # 1. ESPAÇO LOGO (A1:C3) E TÍTULOS (D1:L2 e D3:L3)
         ws.merge_cells('A1:C3')
         ws['A1'] = " Espaço Reservado\n para LOGO MARCA\n da Empresa"
         ws['A1'].font = font_logo
@@ -475,7 +451,6 @@ if st.session_state['manobras']:
         ws['D3'].font = font_subtitulo
         ws['D3'].alignment = Alignment(horizontal='center', vertical='center')
 
-        # 2. SEÇÃO 1: CABEÇALHO DADOS DE GESTÃO E LOCALIZAÇÃO (Linha 5 a 9)
         ws.merge_cells('A5:L5')
         ws['A5'] = " 1. DADOS DE GESTÃO, EQUIPE E LOCALIZAÇÃO DO FURO"
         ws['A5'].font = font_secao
@@ -484,7 +459,6 @@ if st.session_state['manobras']:
 
         prof_max_val = float(df_manobras['Para (m)'].max()) if not df_manobras.empty else 0.0
 
-        # Mapeamento do Cabeçalho em 4 Grupos de Colunas
         matriz_cabecalho = [
             (('A6', 'ID do Furo:'), ('B6:C6', furo_id), ('D6', 'Coordenador:'), ('E6:F6', coordenador), ('G6', 'UTM (E):'), ('H6:I6', utm_e), ('J6', 'Inclinação:'), ('K6:L6', f"{inclinacao}°")),
             (('A7', 'Diâmetro:'), ('B7:C7', diametro), ('D7', 'Supervisor:'), ('E7:F7', supervisor), ('G7', 'UTM (N):'), ('H7:I7', utm_n), ('J7', 'Azimute:'), ('K7:L7', f"{azimute}°")),
@@ -507,7 +481,6 @@ if st.session_state['manobras']:
                 ws[v_pos].font = font_valor
                 ws[v_pos].alignment = Alignment(horizontal='left', vertical='center')
 
-        # 3. SEÇÃO 2: TABELA DE MANOBRAS E GEOTECNIA (Linha 11+)
         ws.merge_cells('A11:L11')
         ws['A11'] = " 2. REGISTRO DE MANOBRAS E GEOTECNIA"
         ws['A11'].font = font_secao
@@ -517,14 +490,12 @@ if st.session_state['manobras']:
         df_excel = df_manobras.drop(columns=['Foto'])
         headers = list(df_excel.columns)
 
-        # Cabeçalho da Tabela
         for col_idx, col_name in enumerate(headers, 1):
             cell = ws.cell(row=12, column=col_idx, value=col_name)
             cell.font = font_cabecalho_tab
             cell.fill = fill_azul_escuro
             cell.alignment = Alignment(horizontal='center', vertical='center')
 
-        # Preenchimento de Manobras
         start_row = 13
         for r_idx, row in df_excel.iterrows():
             curr_row = start_row + r_idx
@@ -536,7 +507,6 @@ if st.session_state['manobras']:
                 if curr_row % 2 == 0:
                     cell.fill = fill_zebrado
 
-        # Linha de Totais/Médias
         tot_row = start_row + len(df_excel) + 1
         ws.cell(row=tot_row, column=1, value="TOTAL / MÉDIA").font = font_totais
         ws.cell(row=tot_row, column=4, value=df_excel['Avanço (m)'].sum()).font = font_totais
@@ -550,7 +520,6 @@ if st.session_state['manobras']:
             cell.border = border_fina
             cell.alignment = Alignment(horizontal='center', vertical='center')
 
-        # Assinaturas no Rodapé do Excel
         sig_line_row = tot_row + 4
         sig_text_row = sig_line_row + 1
 
@@ -572,7 +541,6 @@ if st.session_state['manobras']:
         ws[f'H{sig_text_row}'].font = font_rotulo
         ws[f'H{sig_text_row}'].alignment = Alignment(horizontal='center')
 
-        # Ajuste de Larguras de Coluna
         for col in ws.columns:
             max_len = max(len(str(cell.value or '')) for cell in col)
             col_letter = get_column_letter(col[0].column)
@@ -587,7 +555,7 @@ if st.session_state['manobras']:
             use_container_width=True
         )
 
-    # EXPORTAÇÃO PDF COMPLETO E DETALHADO (2 PÁGINAS)
+    # EXPORTAÇÃO PDF COMPLETO COM IMAGENS E ASSINATURA
     with col_exp2:
         pdf_buf = io.BytesIO()
         doc = SimpleDocTemplate(
@@ -598,19 +566,17 @@ if st.session_state['manobras']:
         elements = []
         styles = getSampleStyleSheet()
 
-        # Estilos Customizados
-        pdf_title = ParagraphStyle('PDFTitle', parent=styles['Heading1'], fontSize=14, leading=16, textColor=colors.HexColor('#1F497D'), alignment=1, fontName='Helvetica-Bold')
-        pdf_sub = ParagraphStyle('PDFSub', parent=styles['Normal'], fontSize=9, leading=11, textColor=colors.HexColor('#595959'), alignment=1, fontName='Helvetica-Bold')
-        pdf_sec = ParagraphStyle('PDFSec', parent=styles['Heading2'], fontSize=10, leading=12, textColor=colors.white, fontName='Helvetica-Bold', backColor=colors.HexColor('#595959'), spaceBefore=4, spaceAfter=4)
-        pdf_sec_blue = ParagraphStyle('PDFSecBlue', parent=styles['Heading2'], fontSize=10, leading=12, textColor=colors.white, fontName='Helvetica-Bold', backColor=colors.HexColor('#1F497D'), spaceBefore=4, spaceAfter=4)
-        pdf_text = ParagraphStyle('PDFText', parent=styles['Normal'], fontSize=8, leading=9, fontName='Helvetica')
-        pdf_text_bold = ParagraphStyle('PDFTextBold', parent=styles['Normal'], fontSize=8, leading=9, fontName='Helvetica-Bold')
-        pdf_text_center = ParagraphStyle('PDFTextCenter', parent=styles['Normal'], fontSize=8, leading=9, alignment=1, fontName='Helvetica')
+        pdf_title = ParagraphStyle('PDFTitle', parent=styles['Heading1'], fontSize=13, leading=15, textColor=colors.HexColor('#1F497D'), alignment=1, fontName='Helvetica-Bold')
+        pdf_sec = ParagraphStyle('PDFSec', parent=styles['Heading2'], fontSize=9, leading=11, textColor=colors.white, fontName='Helvetica-Bold', backColor=colors.HexColor('#595959'), spaceBefore=3, spaceAfter=3)
+        pdf_sec_blue = ParagraphStyle('PDFSecBlue', parent=styles['Heading2'], fontSize=9, leading=11, textColor=colors.white, fontName='Helvetica-Bold', backColor=colors.HexColor('#1F497D'), spaceBefore=3, spaceAfter=3)
+        pdf_text = ParagraphStyle('PDFText', parent=styles['Normal'], fontSize=7.5, leading=8.5, fontName='Helvetica')
+        pdf_text_bold = ParagraphStyle('PDFTextBold', parent=styles['Normal'], fontSize=7.5, leading=8.5, fontName='Helvetica-Bold')
+        pdf_text_center = ParagraphStyle('PDFTextCenter', parent=styles['Normal'], fontSize=7.5, leading=8.5, alignment=1, fontName='Helvetica')
 
-        # --- CABEÇALHO DO PDF ---
+        # --- PÁGINA 1: CABEÇALHO, FURO E TABELA MANOBRAS ---
         header_table_data = [
-            [Paragraph("<b>LOGO MARCA</b><br/><font size=6>EMPRESA</font>", pdf_text_center),
-             Paragraph(f"<b>BOLETIM TÉCNICO DE SONDAGEM GEOLÓGICA</b><br/><font size=8 color='#595959'>EMPRESA: {empresa.upper()} | PROJETO: {projeto.upper()}</font>", pdf_title)]
+            [Paragraph("<b>LOGO MARCA</b><br/><font size=5>EMPRESA</font>", pdf_text_center),
+             Paragraph(f"<b>BOLETIM TÉCNICO DE SONDAGEM GEOLÓGICA</b><br/><font size=7 color='#595959'>EMPRESA: {empresa.upper()} | PROJETO: {projeto.upper()}</font>", pdf_title)]
         ]
         t_header = Table(header_table_data, colWidths=[3.5*cm, 15.5*cm])
         t_header.setStyle(TableStyle([
@@ -618,13 +584,12 @@ if st.session_state['manobras']:
             ('ALIGN', (0,0), (-1,-1), 'CENTER'),
             ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
             ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#D9D9D9')),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 6),
-            ('TOPPADDING', (0,0), (-1,-1), 6),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+            ('TOPPADDING', (0,0), (-1,-1), 4),
         ]))
         elements.append(t_header)
-        elements.append(Spacer(1, 6))
+        elements.append(Spacer(1, 4))
 
-        # --- DADOS DE GESTÃO E LOCALIZAÇÃO ---
         elements.append(Paragraph(" 1. DADOS DE GESTÃO, EQUIPE E LOCALIZAÇÃO DO FURO", pdf_sec))
         
         prof_total_val = float(df_manobras['Para (m)'].max())
@@ -638,14 +603,13 @@ if st.session_state['manobras']:
         t_furo.setStyle(TableStyle([
             ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#E2E8F0')),
             ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-            ('TOPPADDING', (0,0), (-1,-1), 3),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 3),
+            ('TOPPADDING', (0,0), (-1,-1), 2),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 2),
             ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#F8FAFC'))
         ]))
         elements.append(t_furo)
-        elements.append(Spacer(1, 6))
+        elements.append(Spacer(1, 4))
 
-        # --- TABELA DE MANOBRAS E GEOTECNIA ---
         elements.append(Paragraph(" 2. REGISTRO DE MANOBRAS E GEOTECNIA", pdf_sec_blue))
         
         table_manobras_data = [
@@ -665,7 +629,6 @@ if st.session_state['manobras']:
                 Paragraph(str(r['Alteração']), pdf_text), Paragraph(str(r['Observações'] or '-'), pdf_text)
             ])
 
-        # Linha de Totais/Médias
         table_manobras_data.append([
             Paragraph("<b>TOTAL / MÉDIA</b>", pdf_text_bold), Paragraph("", pdf_text), Paragraph("", pdf_text),
             Paragraph(f"<b>{df_manobras['Avanço (m)'].sum():.2f}</b>", pdf_text_center),
@@ -685,29 +648,80 @@ if st.session_state['manobras']:
             ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#D9D9D9')),
             ('ROWBACKGROUNDS', (0,1), (-1,-2), [colors.white, colors.HexColor('#F2F5F9')]),
             ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#E9EEF4')),
-            ('TOPPADDING', (0,0), (-1,-1), 4),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+            ('TOPPADDING', (0,0), (-1,-1), 2),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 2),
         ]))
         elements.append(t_manobras)
-        elements.append(Spacer(1, 15))
 
-        # Assinaturas
+        # --- PÁGINA 2: GRÁFICO DO PERFIL, GALERIA DE FOTOS E ASSINATURA ---
+        elements.append(PageBreak())
+        elements.append(Paragraph(" 3. PERFIL STRATIGRÁFICO VISUAL E CURVAS DE RECUPERAÇÃO/RQD", pdf_sec_blue))
+
+        # 1. Converter Fig do Matplotlib para Imagem no PDF
+        img_plt_buf = io.BytesIO()
+        fig.savefig(img_plt_buf, format='png', dpi=200, bbox_inches='tight')
+        img_plt_buf.seek(0)
+        elements.append(RLImage(img_plt_buf, width=18*cm, height=8.5*cm))
+        elements.append(Spacer(1, 6))
+
+        # 2. Anexar Galeria de Fotos no PDF (se houver)
+        fotos_list = [m['Foto'] for m in st.session_state['manobras'] if m['Foto'] is not None]
+        if fotos_list:
+            elements.append(Paragraph(" 4. REGISTRO FOTOGRÁFICO DAS CAIXAS DE TESTEMUNHO", pdf_sec))
+            grid_fotos = []
+            linha_atual = []
+            for idx_f, f_img in enumerate(fotos_list):
+                img_buf_item = io.BytesIO()
+                f_img.save(img_buf_item, format='PNG')
+                img_buf_item.seek(0)
+                rl_foto = RLImage(img_buf_item, width=5.5*cm, height=3.5*cm)
+                linha_atual.append(rl_foto)
+                if len(linha_atual) == 3:
+                    grid_fotos.append(linha_atual)
+                    linha_atual = []
+            if linha_atual:
+                while len(linha_atual) < 3:
+                    linha_atual.append(Paragraph("", pdf_text))
+                grid_fotos.append(linha_atual)
+
+            t_galeria = Table(grid_fotos, colWidths=[6.0*cm, 6.0*cm, 6.0*cm])
+            t_galeria.setStyle(TableStyle([
+                ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+                ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+                ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+            ]))
+            elements.append(t_galeria)
+            elements.append(Spacer(1, 6))
+
+        # 3. Processamento da Assinatura Digital do Canvas
+        rl_ass_img = Paragraph("________________________________________", pdf_text_center)
+        if canvas_result is not None and canvas_result.image_data is not None:
+            ass_array = canvas_result.image_data
+            if ass_array.max() > 0: # Verifica se há traços desenhados
+                img_ass_pil = Image.fromarray(ass_array.astype('uint8'), 'RGBA')
+                ass_buf = io.BytesIO()
+                img_ass_pil.save(ass_buf, format='PNG')
+                ass_buf.seek(0)
+                rl_ass_img = RLImage(ass_buf, width=5.0*cm, height=1.5*cm)
+
+        # Tabela de Assinaturas no Rodapé do PDF
         dados_ass = [
-            [Paragraph("________________________________________", pdf_text_center), Paragraph("________________________________________", pdf_text_center)],
+            [rl_ass_img, Paragraph("________________________________________", pdf_text_center)],
             [Paragraph(f"<b>Geólogo Resp.:</b> {geologo}", pdf_text_center), Paragraph(f"<b>Supervisor/Coordenador:</b> {supervisor}", pdf_text_center)]
         ]
         t_ass = Table(dados_ass, colWidths=[9.5*cm, 9.5*cm])
         t_ass.setStyle(TableStyle([
             ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            ('VALIGN', (0,0), (-1,-1), 'BOTTOM'),
         ]))
+        elements.append(Spacer(1, 10))
         elements.append(t_ass)
 
         doc.build(elements)
         pdf_data = pdf_buf.getvalue()
 
         st.download_button(
-            label="📄 Baixar Relatório PDF Completo",
+            label="📄 Baixar Relatório PDF Completo (com Gráficos e Fotos)",
             data=pdf_data,
             file_name=f"Relatorio_Sondagem_{furo_id}.pdf",
             mime="application/pdf",
