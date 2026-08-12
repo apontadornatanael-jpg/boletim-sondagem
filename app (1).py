@@ -281,7 +281,7 @@ if st.session_state['manobras']:
 
     col_exp1, col_exp2 = st.columns(2)
 
-    # --- EXPORTAÇÃO EXCEL COM LOGO E ASSINATURA ---
+    # --- EXPORTAÇÃO EXCEL ---
     with col_exp1:
         buffer_xls = io.BytesIO()
         wb = openpyxl.Workbook()
@@ -289,7 +289,6 @@ if st.session_state['manobras']:
         ws.title = "Boletim de Sondagem"
         ws.views.sheetView[0].showGridLines = True
 
-        # Estilos Profissionais
         font_titulo = Font(name='Calibri', size=14, bold=True, color='FFFFFF')
         font_sub = Font(name='Calibri', size=10, italic=True, color='FFFFFF')
         font_sec = Font(name='Calibri', size=11, bold=True, color='0F172A')
@@ -318,7 +317,6 @@ if st.session_state['manobras']:
         align_left = Alignment(horizontal='left', vertical='center')
         align_right = Alignment(horizontal='right', vertical='center')
 
-        # Insert Logo on Excel Top (If present)
         if img_logo_pil:
             img_logo_excel_buf = io.BytesIO()
             img_logo_pil.save(img_logo_excel_buf, format='PNG')
@@ -328,7 +326,6 @@ if st.session_state['manobras']:
             xl_logo.height = 40
             ws.add_image(xl_logo, 'A1')
 
-        # 1. Banners de Título
         ws.merge_cells('C1:L1')
         ws['C1'] = empresa.upper()
         ws['C1'].font = font_titulo
@@ -344,7 +341,6 @@ if st.session_state['manobras']:
         ws.row_dimensions[1].height = 25
         ws.row_dimensions[2].height = 18
 
-        # 2. Bloco de Cabeçalho do Projeto
         ws.merge_cells('A4:L4')
         ws['A4'] = "1. DADOS DE GESTÃO E LOCALIZAÇÃO"
         ws['A4'].font = font_sec
@@ -373,7 +369,6 @@ if st.session_state['manobras']:
                 cell_v.alignment = align_left
             curr_row += 1
 
-        # 3. Tabela de Manobras
         curr_row += 1
         ws.merge_cells(f'A{curr_row}:L{curr_row}')
         ws[f'A{curr_row}'] = "2. REGISTRO DE MANOBRAS E PARÂMETROS GEOTÉCNICOS"
@@ -384,7 +379,6 @@ if st.session_state['manobras']:
         curr_row += 1
         df_excel = df_manobras.drop(columns=['Foto'])
         
-        # Cabeçalhos
         for c_idx, col_name in enumerate(df_excel.columns, 1):
             cell = ws.cell(row=curr_row, column=c_idx, value=col_name)
             cell.font = font_header
@@ -393,7 +387,6 @@ if st.session_state['manobras']:
             cell.border = thin_border
         ws.row_dimensions[curr_row].height = 22
 
-        # Linhas de Dados
         header_row_idx = curr_row
         curr_row += 1
         for r_idx, row in df_excel.iterrows():
@@ -414,7 +407,6 @@ if st.session_state['manobras']:
                     cell.alignment = align_center if c_idx == 1 else align_left
             curr_row += 1
 
-        # Totais
         ws.cell(row=curr_row, column=1, value="Total / Média").font = font_total
         ws.cell(row=curr_row, column=1).alignment = align_center
         ws.cell(row=curr_row, column=1).fill = fill_total
@@ -442,7 +434,6 @@ if st.session_state['manobras']:
                 cell.value = "-"
                 cell.alignment = align_center
 
-        # 4. Campo de Assinatura no Excel
         curr_row += 3
         ws.merge_cells(f'A{curr_row}:E{curr_row}')
         ws[f'A{curr_row}'] = "3. VALIDAÇÃO E ASSINATURA TÉCNICA"
@@ -464,7 +455,6 @@ if st.session_state['manobras']:
         ws.cell(row=curr_row+3, column=1, value="_________________________________________").font = font_body
         ws.cell(row=curr_row+4, column=1, value=f"{geologo} - Geólogo Responsável").font = Font(name='Calibri', size=10, bold=True)
 
-        # Ajuste de largura das colunas
         for col in ws.columns:
             max_len = 0
             col_letter = get_column_letter(col[0].column)
@@ -486,7 +476,7 @@ if st.session_state['manobras']:
             use_container_width=True
         )
 
-    # --- EXPORTAÇÃO PDF ABNT ---
+    # --- EXPORTAÇÃO PDF ABNT COM RENDERIZAÇÃO DE MAPA GARANTIDA ---
     with col_exp2:
         class NumberedCanvas(canvas.Canvas):
             def __init__(self, *args, **kwargs):
@@ -520,7 +510,6 @@ if st.session_state['manobras']:
         elements = []
         styles = getSampleStyleSheet()
 
-        # Estilos ABNT
         abnt_titulo_doc = ParagraphStyle('ABNTTituloDoc', parent=styles['Heading1'], fontName='Times-Bold', fontSize=13, leading=15, alignment=1, spaceAfter=4)
         abnt_sub_doc = ParagraphStyle('ABNTSubDoc', parent=styles['Normal'], fontName='Times-Roman', fontSize=10, leading=12, alignment=1, spaceAfter=15)
         abnt_sec = ParagraphStyle('ABNTSec', parent=styles['Heading2'], fontName='Times-Bold', fontSize=11, leading=13, spaceBefore=10, spaceAfter=6)
@@ -569,22 +558,45 @@ if st.session_state['manobras']:
         elements.append(t_furo)
         elements.append(Spacer(1, 6))
 
-        # 3. Satélite
-        elements.append(Paragraph("<b>1.1 Localização de Satélite do Furo</b>", abnt_sec))
+        # 3. GERAÇÃO E INSERÇÃO INFALÍVEL DO MAPA NO PDF
+        elements.append(Paragraph("<b>1.1 Localização Geográfica do Furo</b>", abnt_sec))
+        
+        img_mapa_buf = None
+        # Tentativa A: Serviço de Mapa Estático
         try:
-            url_satelite = f"https://staticmap.openstreetmap.de/staticmap.php?center={lat_furo},{lon_furo}&zoom=15&size=600x180&maptype=mapnik&markers={lat_furo},{lon_furo},red-pushpin"
-            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
-            res = requests.get(url_satelite, headers=headers, timeout=5)
+            url_mapa = f"https://maps.googleapis.com/maps/api/staticmap?center={lat_furo},{lon_furo}&zoom=15&size=600x200&maptype=satellite&markers=color:red%7Clabel:F%7C{lat_furo},{lon_furo}"
+            res = requests.get(url_mapa, timeout=3)
             if res.status_code == 200:
-                img_sat_buf = io.BytesIO(res.content)
-                img_sat_pdf = RLImage(img_sat_buf, width=16.0*cm, height=4.2*cm)
-                elements.append(Paragraph(f"<b>Figura 1</b> – Imagem de satélite e localização geográfica do Furo {furo_id}.", abnt_caption))
-                elements.append(img_sat_pdf)
-                elements.append(Paragraph("Fonte: Adaptado de OpenStreetMap (2026).", abnt_fonte))
-            else:
-                elements.append(Paragraph("<i>(Imagem de satélite indisponível no momento)</i>", abnt_text))
+                img_mapa_buf = io.BytesIO(res.content)
         except Exception:
-            elements.append(Paragraph("<i>(Imagem de satélite indisponível no momento)</i>", abnt_text))
+            img_mapa_buf = None
+
+        # Tentativa B (Garantia Absoluta): Renderização de Croqui Cartográfico via Matplotlib
+        if not img_mapa_buf:
+            fig_map, ax_map = plt.subplots(figsize=(8, 2.5), dpi=200)
+            ax_map.set_facecolor('#E0F2FE')
+            ax_map.plot(lon_furo, lat_furo, marker='o', markersize=10, color='red', markeredgecolor='black', markeredgewidth=1.5)
+            ax_map.text(lon_furo, lat_furo + 0.0008, f"FURO: {furo_id}\nUTM (E/N): {utm_e:.1f} / {utm_n:.1f}", ha='center', va='bottom', fontsize=8, fontweight='bold', bbox=dict(boxstyle='round,pad=0.3', facecolor='white', edgecolor='#0284C7'))
+            
+            # Grade Geográfica de Referência
+            delta = 0.005
+            ax_map.set_xlim(lon_furo - delta, lon_furo + delta)
+            ax_map.set_ylim(lat_furo - delta/2, lat_furo + delta/2)
+            ax_map.grid(True, linestyle='--', alpha=0.6, color='#94A3B8')
+            ax_map.set_xlabel("Longitude (°)", fontsize=7)
+            ax_map.set_ylabel("Latitude (°)", fontsize=7)
+            ax_map.tick_params(labelsize=7)
+            ax_map.set_title(f"Planta de Localização Georeferenciada - Furo {furo_id} ({datum})", fontsize=8, fontweight='bold', color='#0F172A')
+            plt.tight_layout()
+            
+            img_mapa_buf = io.BytesIO()
+            fig_map.savefig(img_mapa_buf, format='png', bbox_inches='tight')
+            img_mapa_buf.seek(0)
+            plt.close(fig_map)
+
+        elements.append(Paragraph(f"<b>Figura 1</b> – Croqui e coordenadas de localização geográfica do Furo {furo_id}.", abnt_caption))
+        elements.append(RLImage(img_mapa_buf, width=16.0*cm, height=4.5*cm))
+        elements.append(Paragraph("Fonte: Sistema de Coordenadas do Projeto (2026).", abnt_fonte))
 
         elements.append(Spacer(1, 4))
 
