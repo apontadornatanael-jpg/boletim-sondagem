@@ -28,40 +28,6 @@ from reportlab.pdfgen import canvas
 # Componente de Assinatura
 from streamlit_drawable_canvas import st_canvas
 
-# Função para baixar imagem de satélite Esri diretamente (Garante o mapa no PDF)
-def obter_mapa_satelite_esri(lat, lon, zoom=15, width=600, height=250):
-    try:
-        # Conversão de Coordenadas Geográficas para Tile Coordinates (Slippy Map)
-        n = 2.0 ** zoom
-        xtile = int((lon + 180.0) / 360.0 * n)
-        ytile = int((1.0 - math.log(math.tan(math.radians(lat)) + (1.0 / math.cos(math.radians(lat)))) / math.pi) / 2.0 * n)
-        
-        # Requisição da imagem de satélite Esri (mesma fonte do app)
-        url = f"https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{zoom}/{ytile}/{xtile}"
-        headers = {'User-Agent': 'Mozilla/5.0'}
-        res = requests.get(url, headers=headers, timeout=5)
-        
-        if res.status_code == 200:
-            img_tile = Image.open(io.BytesIO(res.content)).convert("RGBA")
-            img_tile = img_tile.resize((width, height), Image.Resampling.LANCZOS)
-            
-            # Desenha o Marcador Vermelho idêntico ao Leaflet/Folium no centro
-            draw = ImageDraw.Draw(img_tile)
-            cx, cy = width // 2, height // 2
-            
-            # Marcador (Pino vermelho)
-            draw.ellipse((cx - 10, cy - 25, cx + 10, cy - 5), fill="#E11D48", outline="#FFFFFF", width=2)
-            draw.polygon([(cx - 8, cy - 10), (cx + 8, cy - 10), (cx, cy)], fill="#E11D48")
-            draw.ellipse((cx - 4, cy - 18, cx + 4, cy - 10), fill="#FFFFFF")
-            
-            img_out = io.BytesIO()
-            img_tile.save(img_out, format="PNG")
-            img_out.seek(0)
-            return img_out
-    except Exception:
-        pass
-    return None
-
 # Ocultar elementos padrão do Streamlit
 ocultar_elementos = """
     <style>
@@ -112,6 +78,78 @@ st.markdown("""
     }
     </style>
 """, unsafe_allow_html=True)
+
+# --- GERENCIAMENTO DE SESSÃO / LOGIN ---
+if "logado" not in st.session_state:
+    st.session_state["logado"] = False
+
+# Dicionário de Usuários e Senhas (Altere aqui se desejar mais usuários)
+USUARIOS = {
+    "admin": "1234",
+    "natanael": "sondagem2026"
+}
+
+def tela_login():
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.markdown("## 🔐 Acesso ao Sistema")
+        st.markdown("Entre com suas credenciais para acessar o Boletim de Sondagem.")
+        
+        usuario = st.text_input("Usuário", placeholder="Digite seu usuário")
+        senha = st.text_input("Senha", type="password", placeholder="Digite sua senha")
+        
+        if st.button("Entrar"):
+            if usuario in USUARIOS and USUARIOS[usuario] == senha:
+                st.session_state["logado"] = True
+                st.session_state["usuario_atual"] = usuario
+                st.success("Login efetuado com sucesso!")
+                st.rerun()
+            else:
+                st.error("Usuário ou senha incorretos.")
+
+# Se não estiver logado, exibe a tela de login e para a execução
+if not st.session_state["logado"]:
+    tela_login()
+    st.stop()
+
+# --- BARRA LATERAL (LOGOUT E INFORMAÇÃO) ---
+with st.sidebar:
+    st.markdown(f"👤 **Usuário:** `{st.session_state.get('usuario_atual', 'Usuário')}`")
+    if st.button("🔒 Sair / Logout"):
+        st.session_state["logado"] = False
+        st.rerun()
+
+# --- APLICAÇÃO PRINCIPAL ---
+
+# Função para baixar imagem de satélite Esri diretamente (Garante o mapa no PDF)
+def obter_mapa_satelite_esri(lat, lon, zoom=15, width=600, height=250):
+    try:
+        n = 2.0 ** zoom
+        xtile = int((lon + 180.0) / 360.0 * n)
+        ytile = int((1.0 - math.log(math.tan(math.radians(lat)) + (1.0 / math.cos(math.radians(lat)))) / math.pi) / 2.0 * n)
+        
+        url = f"https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{zoom}/{ytile}/{xtile}"
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        res = requests.get(url, headers=headers, timeout=5)
+        
+        if res.status_code == 200:
+            img_tile = Image.open(io.BytesIO(res.content)).convert("RGBA")
+            img_tile = img_tile.resize((width, height), Image.Resampling.LANCZOS)
+            
+            draw = ImageDraw.Draw(img_tile)
+            cx, cy = width // 2, height // 2
+            
+            draw.ellipse((cx - 10, cy - 25, cx + 10, cy - 5), fill="#E11D48", outline="#FFFFFF", width=2)
+            draw.polygon([(cx - 8, cy - 10), (cx + 8, cy - 10), (cx, cy)], fill="#E11D48")
+            draw.ellipse((cx - 4, cy - 18, cx + 4, cy - 10), fill="#FFFFFF")
+            
+            img_out = io.BytesIO()
+            img_tile.save(img_out, format="PNG")
+            img_out.seek(0)
+            return img_out
+    except Exception:
+        pass
+    return None
 
 # DICIONÁRIO LITOLÓGICO
 DADOS_LITOLOGIA = {
