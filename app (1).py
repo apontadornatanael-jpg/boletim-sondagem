@@ -83,7 +83,6 @@ st.markdown("""
 if "logado" not in st.session_state:
     st.session_state["logado"] = False
 
-# Dicionário de Usuários e Senhas (Altere aqui se desejar mais usuários)
 USUARIOS = {
     "admin": "1234",
     "natanael": "sondagem2026"
@@ -107,12 +106,11 @@ def tela_login():
             else:
                 st.error("Usuário ou senha incorretos.")
 
-# Se não estiver logado, exibe a tela de login e para a execução
 if not st.session_state["logado"]:
     tela_login()
     st.stop()
 
-# --- BARRA LATERAL (LOGOUT E INFORMAÇÃO) ---
+# --- BARRA LATERAL ---
 with st.sidebar:
     st.markdown(f"👤 **Usuário:** `{st.session_state.get('usuario_atual', 'Usuário')}`")
     if st.button("🔒 Sair / Logout"):
@@ -121,7 +119,6 @@ with st.sidebar:
 
 # --- APLICAÇÃO PRINCIPAL ---
 
-# Função para baixar imagem de satélite Esri diretamente (Garante o mapa no PDF)
 def obter_mapa_satelite_esri(lat, lon, zoom=15, width=600, height=250):
     try:
         n = 2.0 ** zoom
@@ -151,7 +148,6 @@ def obter_mapa_satelite_esri(lat, lon, zoom=15, width=600, height=250):
         pass
     return None
 
-# DICIONÁRIO LITOLÓGICO
 DADOS_LITOLOGIA = {
     'Solo / Cobertura':        {'cor': '#E5D3B3', 'hatch': '....'},
     'Siltito / Argilito':      {'cor': '#D2B48C', 'hatch': '----'},
@@ -170,7 +166,6 @@ if 'manobras' not in st.session_state:
 st.title("📋 Boletim Digital de Sondagem Mineral")
 st.markdown("---")
 
-# 1. DADOS DE GESTÃO E LOCALIZAÇÃO
 st.header("1. Cabeçalho do Projeto & Equipe Técnica")
 
 col_logo, col_gest = st.columns([1, 3])
@@ -231,7 +226,6 @@ with st.expander("🌐 Coordenadas GPS e Mapa do Furo", expanded=True):
 
 st.markdown("---")
 
-# 2. REGISTRO DE MANOBRAS E FOTOS
 st.header("2. Registro de Manobras e Fotos do Testemunho")
 
 prox_de = st.session_state['manobras'][-1]['Para (m)'] if st.session_state['manobras'] else 0.0
@@ -305,13 +299,12 @@ if btn_remover and st.session_state['manobras']:
 
 st.markdown("---")
 
-# 3. PERFIL VISUAL E TABELA
 st.header("3. Perfil Litológico e Relatórios")
 
 if st.session_state['manobras']:
     df_manobras = pd.DataFrame(st.session_state['manobras'])
 
-    # GERAÇÃO DO GRÁFICO DO PERFIL
+    # GERAÇÃO DO GRÁFICO
     plt.rcParams['hatch.linewidth'] = 1.2
     plt.rcParams['hatch.color'] = '#333333'
     fig, (ax_lito, ax_rqd, ax_rec) = plt.subplots(1, 3, figsize=(11, 4.5), sharey=True, gridspec_kw={'width_ratios': [1.3, 2, 2]})
@@ -345,12 +338,20 @@ if st.session_state['manobras']:
     ax_rec.set_title("Recuperação (%)", fontsize=10, fontweight='bold')
     plt.tight_layout()
 
+    # --- AJUSTE 1: Exibir e liberar memória do gráfico imediatamente ---
     st.pyplot(fig)
+    plt.close(fig)
 
     st.dataframe(df_manobras.drop(columns=['Foto']), use_container_width=True, hide_index=True)
 
     st.markdown("### ✍️ Assinatura Digital do Responsável")
     canvas_result = st_canvas(fill_color="rgba(255, 255, 255, 0)", stroke_width=2, stroke_color="#000000", background_color="#F8FAFC", height=120, width=400, drawing_mode="freedraw", key="canvas_assinatura")
+
+    # --- AJUSTE 2: Checagem de segurança se a assinatura realmente foi feita ---
+    tem_assinatura = (
+        canvas_result.image_data is not None 
+        and canvas_result.image_data.any()
+    )
 
     col_exp1, col_exp2 = st.columns(2)
 
@@ -514,7 +515,9 @@ if st.session_state['manobras']:
         ws[f'A{curr_row}'].fill = fill_sec
 
         curr_row += 2
-        if canvas_result.image_data is not None:
+        
+        # --- AJUSTE 3: Inserção segura da assinatura no Excel ---
+        if tem_assinatura:
             img_ass_pil = Image.fromarray(canvas_result.image_data.astype('uint8'))
             ass_excel_buf = io.BytesIO()
             img_ass_pil.save(ass_excel_buf, format='PNG')
@@ -549,7 +552,7 @@ if st.session_state['manobras']:
             use_container_width=True
         )
 
-    # --- EXPORTAÇÃO PDF ABNT COM CAPTURA GARANTIDA DO MAPA DE SATÉLITE ---
+    # --- EXPORTAÇÃO PDF ABNT ---
     with col_exp2:
         class NumberedCanvas(canvas.Canvas):
             def __init__(self, *args, **kwargs):
@@ -593,7 +596,7 @@ if st.session_state['manobras']:
         abnt_caption = ParagraphStyle('ABNTCaption', parent=styles['Italic'], fontName='Times-Italic', fontSize=8.5, leading=10, alignment=0, spaceAfter=4)
         abnt_fonte = ParagraphStyle('ABNTFonte', parent=styles['Italic'], fontName='Times-Roman', fontSize=7.5, leading=9, alignment=0, spaceBefore=3, spaceAfter=8)
 
-        # 1. Cabeçalho com Logo
+        # Header
         if img_logo_pil:
             img_logo_pdf_buf = io.BytesIO()
             img_logo_pil.save(img_logo_pdf_buf, format='PNG')
@@ -608,7 +611,7 @@ if st.session_state['manobras']:
             elements.append(Paragraph(f"<b>{empresa.upper()}</b>", abnt_titulo_doc))
             elements.append(Paragraph(f"RELATÓRIO TÉCNICO DE SONDAGEM GEOLÓGICA — FURO <b>{furo_id}</b>", abnt_sub_doc))
 
-        # 2. Dados Furo
+        # Dados do Furo
         elements.append(Paragraph("<b>1. DADOS DE GESTÃO E LOCALIZAÇÃO DO FURO</b>", abnt_sec))
         prof_total_val = float(df_manobras['Para (m)'].max())
         dados_furo_table = [
@@ -631,9 +634,8 @@ if st.session_state['manobras']:
         elements.append(t_furo)
         elements.append(Spacer(1, 6))
 
-        # 3. GERAÇÃO DIRETA DA IMAGEM DE SATÉLITE ESRI PARA O PDF
+        # Satélite
         elements.append(Paragraph("<b>1.1 Localização Geográfica do Furo</b>", abnt_sec))
-        
         img_mapa_esri = obter_mapa_satelite_esri(lat_furo, lon_furo)
         
         if img_mapa_esri:
@@ -645,7 +647,7 @@ if st.session_state['manobras']:
 
         elements.append(Spacer(1, 4))
 
-        # 4. Tabela de Manobras
+        # Tabela de Manobras
         elements.append(Paragraph("<b>2. REGISTRO DE MANOBRAS E DADOS GEOTÉCNICOS</b>", abnt_sec))
         elements.append(Paragraph("<b>Tabela 1</b> – Parâmetros geotécnicos e descrição litológica por manobra.", abnt_caption))
 
@@ -690,7 +692,7 @@ if st.session_state['manobras']:
 
         elements.append(PageBreak())
 
-        # 5. Perfil
+        # Perfil
         elements.append(Paragraph("<b>3. PERFIL STRATIGRÁFICO E CURVAS DE RECUPERAÇÃO/RQD</b>", abnt_sec))
         elements.append(Paragraph("<b>Figura 2</b> – Perfil geológico e variação dos parâmetros geotécnicos em profundidade.", abnt_caption))
 
@@ -702,7 +704,7 @@ if st.session_state['manobras']:
         elements.append(img_perfil_pdf)
         elements.append(Paragraph("Fonte: Elaborado pelos autores a partir de medições de campo.", abnt_fonte))
 
-        # 6. Galeria de Fotos
+        # Fotos
         elements.append(Spacer(1, 6))
         elements.append(Paragraph("<b>4. REGISTRO FOTOGRÁFICO DOS TESTEMUNHOS DE SONDAGEM</b>", abnt_sec))
         
@@ -741,11 +743,12 @@ if st.session_state['manobras']:
         else:
             elements.append(Paragraph("<i>Nenhum registro fotográfico anexado a este furo.</i>", abnt_text))
 
-        # 7. Assinatura PDF
+        # Assinatura PDF
         elements.append(Spacer(1, 10))
         elements_assinatura = [Paragraph("<b>5. ENCERRAMENTO E ASSINATURA TÉCNICA</b>", abnt_sec)]
         
-        if canvas_result.image_data is not None:
+        # --- AJUSTE 4: Inserção segura da assinatura no PDF ---
+        if tem_assinatura:
             img_ass = Image.fromarray(canvas_result.image_data.astype('uint8'))
             ass_buf = io.BytesIO()
             img_ass.save(ass_buf, format='PNG')
