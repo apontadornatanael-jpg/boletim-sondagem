@@ -14,6 +14,7 @@ from streamlit_folium import st_folium
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
+from openpyxl.drawing.image import Image as OpenpyxlImage
 
 # ReportLab para geração de PDF ABNT & Profissional
 from reportlab.lib.pagesizes import A4, portrait
@@ -25,7 +26,6 @@ from reportlab.pdfgen import canvas
 
 # Componente de Assinatura
 from streamlit_drawable_canvas import st_canvas
-from streamlit_javascript import st_javascript
 
 # Ocultar elementos padrão do Streamlit
 ocultar_elementos = """
@@ -100,18 +100,30 @@ st.markdown("---")
 # 1. DADOS DE GESTÃO E LOCALIZAÇÃO
 st.header("1. Cabeçalho do Projeto & Equipe Técnica")
 
-col_g1, col_g2, col_g3, col_g4 = st.columns(4)
-with col_g1:
-    empresa = st.text_input("Empresa / Mineradora", value="Mineração Picuí S.A.")
-    projeto = st.text_input("Nome do Projeto", value="Projeto Picuí")
-with col_g2:
-    coordenador = st.text_input("Coordenador do Projeto", value="Eng. Carlos Andrade")
-    supervisor = st.text_input("Supervisor de Campo", value="Téc. Roberto Lima")
-with col_g3:
-    geologo = st.text_input("Geólogo Responsável", value="Geól. Mariana Costa")
-    sondador = st.text_input("Sondador / Equipe", value="Natanael & Equipe")
-with col_g4:
+col_logo, col_gest = st.columns([1, 3])
+with col_logo:
+    st.subheader("🖼️ Logomarca da Empresa")
+    logo_file = st.file_uploader("Carregar Logo (PNG/JPG)", type=['png', 'jpg', 'jpeg'])
+    img_logo_pil = Image.open(logo_file) if logo_file else None
+    if img_logo_pil:
+        st.image(img_logo_pil, width=180)
+
+with col_gest:
+    col_g1, col_g2, col_g3 = st.columns(3)
+    with col_g1:
+        empresa = st.text_input("Empresa / Mineradora", value="Mineração Picuí S.A.")
+        projeto = st.text_input("Nome do Projeto", value="Projeto Picuí")
+    with col_g2:
+        coordenador = st.text_input("Coordenador do Projeto", value="Eng. Carlos Andrade")
+        supervisor = st.text_input("Supervisor de Campo", value="Téc. Roberto Lima")
+    with col_g3:
+        geologo = st.text_input("Geólogo Responsável", value="Geól. Mariana Costa")
+        sondador = st.text_input("Sondador / Equipe", value="Natanael & Equipe")
+
+col_furo1, col_furo2 = st.columns(2)
+with col_furo1:
     furo_id = st.text_input("ID do Furo", value="F-001")
+with col_furo2:
     diametro = st.selectbox("Diâmetro", ['HQ (63.5mm)', 'NQ (47.6mm)', 'BQ (36.5mm)', 'RC (Circ. Reversa)', 'Outro'])
 
 with st.expander("🌐 Coordenadas GPS e Mapa do Furo", expanded=True):
@@ -269,7 +281,7 @@ if st.session_state['manobras']:
 
     col_exp1, col_exp2 = st.columns(2)
 
-    # --- EXPORTAÇÃO EXCEL REFORMULADA E COMPLETA ---
+    # --- EXPORTAÇÃO EXCEL COM LOGO E ASSINATURA ---
     with col_exp1:
         buffer_xls = io.BytesIO()
         wb = openpyxl.Workbook()
@@ -277,7 +289,7 @@ if st.session_state['manobras']:
         ws.title = "Boletim de Sondagem"
         ws.views.sheetView[0].showGridLines = True
 
-        # Estilos Profissionais de Células
+        # Estilos Profissionais
         font_titulo = Font(name='Calibri', size=14, bold=True, color='FFFFFF')
         font_sub = Font(name='Calibri', size=10, italic=True, color='FFFFFF')
         font_sec = Font(name='Calibri', size=11, bold=True, color='0F172A')
@@ -306,12 +318,22 @@ if st.session_state['manobras']:
         align_left = Alignment(horizontal='left', vertical='center')
         align_right = Alignment(horizontal='right', vertical='center')
 
+        # Insert Logo on Excel Top (If present)
+        if img_logo_pil:
+            img_logo_excel_buf = io.BytesIO()
+            img_logo_pil.save(img_logo_excel_buf, format='PNG')
+            img_logo_excel_buf.seek(0)
+            xl_logo = OpenpyxlImage(img_logo_excel_buf)
+            xl_logo.width = 110
+            xl_logo.height = 40
+            ws.add_image(xl_logo, 'A1')
+
         # 1. Banners de Título
-        ws.merge_cells('A1:L1')
-        ws['A1'] = empresa.upper()
-        ws['A1'].font = font_titulo
-        ws['A1'].fill = fill_banner
-        ws['A1'].alignment = align_center
+        ws.merge_cells('C1:L1')
+        ws['C1'] = empresa.upper()
+        ws['C1'].font = font_titulo
+        ws['C1'].fill = fill_banner
+        ws['C1'].alignment = align_center
 
         ws.merge_cells('A2:L2')
         ws['A2'] = f"BOLETIM TÉCNICO DE SONDAGEM GEOLÓGICA - FURO {furo_id}"
@@ -362,7 +384,7 @@ if st.session_state['manobras']:
         curr_row += 1
         df_excel = df_manobras.drop(columns=['Foto'])
         
-        # Cabeçalhos da Tabela
+        # Cabeçalhos
         for c_idx, col_name in enumerate(df_excel.columns, 1):
             cell = ws.cell(row=curr_row, column=c_idx, value=col_name)
             cell.font = font_header
@@ -382,7 +404,6 @@ if st.session_state['manobras']:
                 cell.border = thin_border
                 cell.fill = row_fill
                 
-                # Formatação de números
                 if isinstance(val, (int, float)):
                     cell.alignment = align_right
                     if "Rec (%)" in df_excel.columns[c_idx-1] or "RQD (%)" in df_excel.columns[c_idx-1]:
@@ -393,7 +414,7 @@ if st.session_state['manobras']:
                     cell.alignment = align_center if c_idx == 1 else align_left
             curr_row += 1
 
-        # Linha de Totais/Médias
+        # Totais
         ws.cell(row=curr_row, column=1, value="Total / Média").font = font_total
         ws.cell(row=curr_row, column=1).alignment = align_center
         ws.cell(row=curr_row, column=1).fill = fill_total
@@ -421,12 +442,33 @@ if st.session_state['manobras']:
                 cell.value = "-"
                 cell.alignment = align_center
 
-        # 4. Ajuste Automático de Largura das Colunas
+        # 4. Campo de Assinatura no Excel
+        curr_row += 3
+        ws.merge_cells(f'A{curr_row}:E{curr_row}')
+        ws[f'A{curr_row}'] = "3. VALIDAÇÃO E ASSINATURA TÉCNICA"
+        ws[f'A{curr_row}'].font = font_sec
+        ws[f'A{curr_row}'].fill = fill_sec
+
+        curr_row += 2
+        if canvas_result.image_data is not None:
+            img_ass_pil = Image.fromarray(canvas_result.image_data.astype('uint8'))
+            ass_excel_buf = io.BytesIO()
+            img_ass_pil.save(ass_excel_buf, format='PNG')
+            ass_excel_buf.seek(0)
+            
+            xl_ass = OpenpyxlImage(ass_excel_buf)
+            xl_ass.width = 180
+            xl_ass.height = 55
+            ws.add_image(xl_ass, f'A{curr_row}')
+
+        ws.cell(row=curr_row+3, column=1, value="_________________________________________").font = font_body
+        ws.cell(row=curr_row+4, column=1, value=f"{geologo} - Geólogo Responsável").font = Font(name='Calibri', size=10, bold=True)
+
+        # Ajuste de largura das colunas
         for col in ws.columns:
             max_len = 0
             col_letter = get_column_letter(col[0].column)
             for cell in col:
-                # Ignora células mescladas para cálculo de largura
                 if cell.coordinate in ws.merged_cells:
                     continue
                 if cell.value:
@@ -444,9 +486,8 @@ if st.session_state['manobras']:
             use_container_width=True
         )
 
-    # --- EXPORTAÇÃO PDF NORMA ABNT REFINADO ---
+    # --- EXPORTAÇÃO PDF ABNT ---
     with col_exp2:
-        
         class NumberedCanvas(canvas.Canvas):
             def __init__(self, *args, **kwargs):
                 super().__init__(*args, **kwargs)
@@ -471,7 +512,6 @@ if st.session_state['manobras']:
                     self.drawRightString(19.0 * cm, 28.0 * cm, text)
 
         pdf_buf = io.BytesIO()
-        
         doc = SimpleDocTemplate(
             pdf_buf, pagesize=portrait(A4),
             leftMargin=3.0*cm, rightMargin=2.0*cm,
@@ -480,7 +520,7 @@ if st.session_state['manobras']:
         elements = []
         styles = getSampleStyleSheet()
 
-        # ESTILOS REFINADOS ABNT
+        # Estilos ABNT
         abnt_titulo_doc = ParagraphStyle('ABNTTituloDoc', parent=styles['Heading1'], fontName='Times-Bold', fontSize=13, leading=15, alignment=1, spaceAfter=4)
         abnt_sub_doc = ParagraphStyle('ABNTSubDoc', parent=styles['Normal'], fontName='Times-Roman', fontSize=10, leading=12, alignment=1, spaceAfter=15)
         abnt_sec = ParagraphStyle('ABNTSec', parent=styles['Heading2'], fontName='Times-Bold', fontSize=11, leading=13, spaceBefore=10, spaceAfter=6)
@@ -491,13 +531,23 @@ if st.session_state['manobras']:
         abnt_caption = ParagraphStyle('ABNTCaption', parent=styles['Italic'], fontName='Times-Italic', fontSize=8.5, leading=10, alignment=0, spaceAfter=4)
         abnt_fonte = ParagraphStyle('ABNTFonte', parent=styles['Italic'], fontName='Times-Roman', fontSize=7.5, leading=9, alignment=0, spaceBefore=3, spaceAfter=8)
 
-        # 1. CABEÇALHO TÉCNICO E INSTITUCIONAL
-        elements.append(Paragraph(f"<b>{empresa.upper()}</b>", abnt_titulo_doc))
-        elements.append(Paragraph(f"RELATÓRIO TÉCNICO DE SONDAGEM GEOLÓGICA — FURO <b>{furo_id}</b>", abnt_sub_doc))
+        # 1. Cabeçalho com Logo
+        if img_logo_pil:
+            img_logo_pdf_buf = io.BytesIO()
+            img_logo_pil.save(img_logo_pdf_buf, format='PNG')
+            img_logo_pdf_buf.seek(0)
+            rl_logo = RLImage(img_logo_pdf_buf, width=4.0*cm, height=1.5*cm)
+            
+            header_table = Table([[rl_logo, Paragraph(f"<b>{empresa.upper()}</b><br/>RELATÓRIO TÉCNICO DE SONDAGEM GEOLÓGICA", abnt_titulo_doc)]], colWidths=[4.5*cm, 11.5*cm])
+            header_table.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'MIDDLE'), ('ALIGN', (0,0), (0,0), 'LEFT')]))
+            elements.append(header_table)
+            elements.append(Spacer(1, 10))
+        else:
+            elements.append(Paragraph(f"<b>{empresa.upper()}</b>", abnt_titulo_doc))
+            elements.append(Paragraph(f"RELATÓRIO TÉCNICO DE SONDAGEM GEOLÓGICA — FURO <b>{furo_id}</b>", abnt_sub_doc))
 
-        # 2. DADOS DE GESTÃO E LOCALIZAÇÃO
+        # 2. Dados Furo
         elements.append(Paragraph("<b>1. DADOS DE GESTÃO E LOCALIZAÇÃO DO FURO</b>", abnt_sec))
-        
         prof_total_val = float(df_manobras['Para (m)'].max())
         dados_furo_table = [
             [Paragraph("<b>Projeto:</b>", abnt_text), Paragraph(projeto, abnt_text), Paragraph("<b>Coordenador:</b>", abnt_text), Paragraph(coordenador, abnt_text)],
@@ -519,24 +569,26 @@ if st.session_state['manobras']:
         elements.append(t_furo)
         elements.append(Spacer(1, 6))
 
-        # 3. LOCALIZAÇÃO DE SATÉLITE
+        # 3. Satélite
         elements.append(Paragraph("<b>1.1 Localização de Satélite do Furo</b>", abnt_sec))
         try:
             url_satelite = f"https://staticmap.openstreetmap.de/staticmap.php?center={lat_furo},{lon_furo}&zoom=15&size=600x180&maptype=mapnik&markers={lat_furo},{lon_furo},red-pushpin"
-            res = requests.get(url_satelite, timeout=5)
+            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+            res = requests.get(url_satelite, headers=headers, timeout=5)
             if res.status_code == 200:
                 img_sat_buf = io.BytesIO(res.content)
                 img_sat_pdf = RLImage(img_sat_buf, width=16.0*cm, height=4.2*cm)
-                
                 elements.append(Paragraph(f"<b>Figura 1</b> – Imagem de satélite e localização geográfica do Furo {furo_id}.", abnt_caption))
                 elements.append(img_sat_pdf)
                 elements.append(Paragraph("Fonte: Adaptado de OpenStreetMap (2026).", abnt_fonte))
+            else:
+                elements.append(Paragraph("<i>(Imagem de satélite indisponível no momento)</i>", abnt_text))
         except Exception:
             elements.append(Paragraph("<i>(Imagem de satélite indisponível no momento)</i>", abnt_text))
 
         elements.append(Spacer(1, 4))
 
-        # 4. TABELA DE MANOBRAS E GEOTECNIA
+        # 4. Tabela de Manobras
         elements.append(Paragraph("<b>2. REGISTRO DE MANOBRAS E DADOS GEOTÉCNICOS</b>", abnt_sec))
         elements.append(Paragraph("<b>Tabela 1</b> – Parâmetros geotécnicos e descrição litológica por manobra.", abnt_caption))
 
@@ -555,7 +607,6 @@ if st.session_state['manobras']:
                 Paragraph(str(r['Observações'] or '-'), abnt_text)
             ])
 
-        # Linha de Totais com colunas sincronizadas
         table_manobras_data.append([
             Paragraph("<b>Total / Média</b>", abnt_th), Paragraph("-", abnt_td), Paragraph("-", abnt_td),
             Paragraph(f"<b>{df_manobras['Avanço (m)'].sum():.2f}</b>", abnt_th),
@@ -582,7 +633,7 @@ if st.session_state['manobras']:
 
         elements.append(PageBreak())
 
-        # 5. PERFIL STRATIGRÁFICO
+        # 5. Perfil
         elements.append(Paragraph("<b>3. PERFIL STRATIGRÁFICO E CURVAS DE RECUPERAÇÃO/RQD</b>", abnt_sec))
         elements.append(Paragraph("<b>Figura 2</b> – Perfil geológico e variação dos parâmetros geotécnicos em profundidade.", abnt_caption))
 
@@ -594,7 +645,7 @@ if st.session_state['manobras']:
         elements.append(img_perfil_pdf)
         elements.append(Paragraph("Fonte: Elaborado pelos autores a partir de medições de campo.", abnt_fonte))
 
-        # 6. REGISTRO FOTOGRÁFICO
+        # 6. Galeria de Fotos
         elements.append(Spacer(1, 6))
         elements.append(Paragraph("<b>4. REGISTRO FOTOGRÁFICO DOS TESTEMUNHOS DE SONDAGEM</b>", abnt_sec))
         
@@ -605,9 +656,12 @@ if st.session_state['manobras']:
             row_temp = []
             for idx, img_p in enumerate(fotos_list):
                 img_b = io.BytesIO()
-                img_p.save(img_b, format='PNG')
+                img_copy = img_p.copy()
+                img_copy.thumbnail((400, 300))
+                img_copy.save(img_b, format='PNG')
                 img_b.seek(0)
-                rl_img = RLImage(img_b, width=3.6*cm, height=2.6*cm)
+                
+                rl_img = RLImage(img_b, width=3.8*cm, height=2.8*cm)
                 row_temp.append(rl_img)
                 if len(row_temp) == 4:
                     fotos_grid.append(row_temp)
@@ -630,11 +684,9 @@ if st.session_state['manobras']:
         else:
             elements.append(Paragraph("<i>Nenhum registro fotográfico anexado a este furo.</i>", abnt_text))
 
-        # 7. ENCERRAMENTO E ASSINATURA TÉCNICA
+        # 7. Assinatura PDF
         elements.append(Spacer(1, 10))
-        
-        elements_assinatura = []
-        elements_assinatura.append(Paragraph("<b>5. ENCERRAMENTO E ASSINATURA TÉCNICA</b>", abnt_sec))
+        elements_assinatura = [Paragraph("<b>5. ENCERRAMENTO E ASSINATURA TÉCNICA</b>", abnt_sec)]
         
         if canvas_result.image_data is not None:
             img_ass = Image.fromarray(canvas_result.image_data.astype('uint8'))
@@ -645,19 +697,13 @@ if st.session_state['manobras']:
         else:
             rl_ass = Paragraph("<br/><br/>___________________________________", abnt_text)
 
-        sig_table_data = [
-            [rl_ass, Paragraph(f"<br/><br/>___________________________________<br/><b>{geologo}</b><br/>Geólogo Responsável", abnt_text)],
-        ]
+        sig_table_data = [[rl_ass, Paragraph(f"<br/><br/>___________________________________<br/><b>{geologo}</b><br/>Geólogo Responsável", abnt_text)]]
         t_sig = Table(sig_table_data, colWidths=[8.0*cm, 8.0*cm])
-        t_sig.setStyle(TableStyle([
-            ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ]))
+        t_sig.setStyle(TableStyle([('ALIGN', (0,0), (-1,-1), 'CENTER'), ('VALIGN', (0,0), (-1,-1), 'MIDDLE')]))
         elements_assinatura.append(t_sig)
-        
         elements.append(KeepTogether(elements_assinatura))
 
-        # GERAR PDF
+        # Gerar PDF
         doc.build(elements, canvasmaker=NumberedCanvas)
         
         st.download_button(
