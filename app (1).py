@@ -4,8 +4,9 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import io
 import json
+import math
 from datetime import datetime
-from PIL import Image
+from PIL import Image, ImageDraw
 import requests
 
 import folium
@@ -26,6 +27,40 @@ from reportlab.pdfgen import canvas
 
 # Componente de Assinatura
 from streamlit_drawable_canvas import st_canvas
+
+# Função para baixar imagem de satélite Esri diretamente (Garante o mapa no PDF)
+def obter_mapa_satelite_esri(lat, lon, zoom=15, width=600, height=250):
+    try:
+        # Conversão de Coordenadas Geográficas para Tile Coordinates (Slippy Map)
+        n = 2.0 ** zoom
+        xtile = int((lon + 180.0) / 360.0 * n)
+        ytile = int((1.0 - math.log(math.tan(math.radians(lat)) + (1.0 / math.cos(math.radians(lat)))) / math.pi) / 2.0 * n)
+        
+        # Requisição da imagem de satélite Esri (mesma fonte do app)
+        url = f"https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{zoom}/{ytile}/{xtile}"
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        res = requests.get(url, headers=headers, timeout=5)
+        
+        if res.status_code == 200:
+            img_tile = Image.open(io.BytesIO(res.content)).convert("RGBA")
+            img_tile = img_tile.resize((width, height), Image.Resampling.LANCZOS)
+            
+            # Desenha o Marcador Vermelho idêntico ao Leaflet/Folium no centro
+            draw = ImageDraw.Draw(img_tile)
+            cx, cy = width // 2, height // 2
+            
+            # Marcador (Pino vermelho)
+            draw.ellipse((cx - 10, cy - 25, cx + 10, cy - 5), fill="#E11D48", outline="#FFFFFF", width=2)
+            draw.polygon([(cx - 8, cy - 10), (cx + 8, cy - 10), (cx, cy)], fill="#E11D48")
+            draw.ellipse((cx - 4, cy - 18, cx + 4, cy - 10), fill="#FFFFFF")
+            
+            img_out = io.BytesIO()
+            img_tile.save(img_out, format="PNG")
+            img_out.seek(0)
+            return img_out
+    except Exception:
+        pass
+    return None
 
 # Ocultar elementos padrão do Streamlit
 ocultar_elementos = """
@@ -476,7 +511,7 @@ if st.session_state['manobras']:
             use_container_width=True
         )
 
-    # --- EXPORTAÇÃO PDF ABNT COM RENDERIZAÇÃO DO MAPA IGUAL AO APP EM TEMPO REAL ---
+    # --- EXPORTAÇÃO PDF ABNT COM CAPTURA GARANTIDA DO MAPA DE SATÉLITE ---
     with col_exp2:
         class NumberedCanvas(canvas.Canvas):
             def __init__(self, *args, **kwargs):
@@ -558,46 +593,17 @@ if st.session_state['manobras']:
         elements.append(t_furo)
         elements.append(Spacer(1, 6))
 
-        # 3. GERAÇÃO EM TEMPO REAL DO MAPA IGUAL AO DO APP (ESRI / OSM)
+        # 3. GERAÇÃO DIRETA DA IMAGEM DE SATÉLITE ESRI PARA O PDF
         elements.append(Paragraph("<b>1.1 Localização Geográfica do Furo</b>", abnt_sec))
         
-        fig_map, ax_map = plt.subplots(figsize=(8, 2.8), dpi=200)
+        img_mapa_esri = obter_mapa_satelite_esri(lat_furo, lon_furo)
         
-        # Plota exatamente o ponto do furo idêntico ao Folium no app
-        ax_map.plot(lon_furo, lat_furo, marker='o', markersize=10, color='red', markeredgecolor='black', markeredgewidth=1.2, zorder=5)
-        ax_map.annotate(f" Furo: {furo_id}\n ({lat_furo:.6f}, {lon_furo:.6f})", 
-                        xy=(lon_furo, lat_furo), xytext=(8, 8), textcoords="offset points",
-                        fontsize=8, fontweight='bold',
-                        bbox=dict(boxstyle="round,pad=0.3", fc="#FFFFFF", ec="#EF4444", lw=1.2, alpha=0.9),
-                        zorder=6)
-
-        # Ajusta os limites e tenta adicionar os tiles de mapa idênticos ao Folium
-        delta = 0.003
-        ax_map.set_xlim(lon_furo - delta, lon_furo + delta)
-        ax_map.set_ylim(lat_furo - delta/1.8, lat_furo + delta/1.8)
-        
-        try:
-            import contextily as cx
-            cx.add_basemap(ax_map, crs='EPSG:4326', source=cx.providers.Esri.WorldImagery, zoom=16)
-        except Exception:
-            # Fallback limpo mantendo a precisão cartográfica
-            ax_map.set_facecolor('#F1F5F9')
-            ax_map.grid(True, linestyle='--', alpha=0.7, color='#94A3B8')
-
-        ax_map.set_xlabel("Longitude (°)", fontsize=7, fontweight='bold')
-        ax_map.set_ylabel("Latitude (°)", fontsize=7, fontweight='bold')
-        ax_map.tick_params(labelsize=7)
-        ax_map.set_title(f"Planta de Localização em Tempo Real - Furo {furo_id}", fontsize=8, fontweight='bold', color='#0F172A')
-        plt.tight_layout()
-
-        img_mapa_buf = io.BytesIO()
-        fig_map.savefig(img_mapa_buf, format='png', bbox_inches='tight')
-        img_mapa_buf.seek(0)
-        plt.close(fig_map)
-
-        elements.append(Paragraph(f"<b>Figura 1</b> – Mapa de localização em tempo real do Furo {furo_id}.", abnt_caption))
-        elements.append(RLImage(img_mapa_buf, width=16.0*cm, height=5.2*cm))
-        elements.append(Paragraph("Fonte: Esri World Imagery / Sistema de Coordenadas do Projeto (2026).", abnt_fonte))
+        if img_mapa_esri:
+            elements.append(Paragraph(f"<b>Figura 1</b> – Imagem de satélite com localização do Furo {furo_id}.", abnt_caption))
+            elements.append(RLImage(img_mapa_esri, width=16.0*cm, height=5.5*cm))
+            elements.append(Paragraph("Fonte: Esri World Imagery (2026).", abnt_fonte))
+        else:
+            elements.append(Paragraph("<i>Não foi possível carregar a imagem de satélite no PDF. Verificar conexão com a internet.</i>", abnt_text))
 
         elements.append(Spacer(1, 4))
 
