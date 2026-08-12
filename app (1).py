@@ -24,8 +24,6 @@ from reportlab.lib.units import cm
 # Componente de Assinatura
 from streamlit_drawable_canvas import st_canvas
 
-import streamlit as st
-import requests
 from weasyprint import HTML
 
 def gerar_pdf_com_satelite_real(latitude, longitude, ponto_id):
