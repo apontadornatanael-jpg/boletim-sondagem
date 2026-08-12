@@ -28,27 +28,34 @@ from reportlab.pdfgen import canvas
 # Componente de Assinatura
 from streamlit_drawable_canvas import st_canvas
 
-# Ocultar elementos padrão do Streamlit e marcas d'água de plataformas (Hugging Face / Community Cloud)
+# Ocultar menu, cabeçalho, rodapé e botões de gerenciamento (Manage App / Hugging Face)
 ocultar_elementos = """
     <style>
-    /* Ocultar cabeçalho, menu e rodapé padrão do Streamlit */
-    #MainMenu {visibility: hidden;}
-    header {visibility: hidden;}
-    footer {visibility: hidden;}
-    .stAppHeader {display: none;}
+    /* Oculta o cabeçalho e menus padrão do Streamlit */
+    #MainMenu {visibility: hidden !important;}
+    header {visibility: hidden !important;}
+    footer {visibility: hidden !important;}
+    .stAppHeader {display: none !important;}
     
-    /* Ocultar botões flutuantes de plataformas de hospedagem (como Hugging Face / Streamlit Cloud) */
-    div[data-testid="stStatusWidget"] {display: none !important;}
-    .viewerBadge_container__1tB2o {display: none !important;}
-    .viewerBadge_link__1S137 {display: none !important;}
-    iframe[title="huggingface-badge"] {display: none !important;}
-    button[aria-label="Manage app"] {display: none !important;}
+    /* Oculta a barra de status e o botão 'Manage App' do Streamlit Cloud */
+    [data-testid="stStatusWidget"] {display: none !important;}
+    button[title="Manage app"] {display: none !important;}
+    div[class*="manageApp"] {display: none !important;}
+    div[class*="StatusWidget"] {display: none !important;}
     
-    /* Esconde qualquer botão/badge flutuante no canto inferior direito */
-    [data-testid="stDecoration"] {display: none !important;}
-    #root > div:nth-child(2) {display: none !important;}
+    /* Oculta badges e botões flutuantes do Hugging Face (coroa / ícone de navegação) */
+    iframe[src*="huggingface.co"] {display: none !important;}
+    .badge-container, .hf-badge {display: none !important;}
+    a[href*="huggingface.co/spaces"] {display: none !important;}
+    
+    /* Remove margem do topo para preencher a tela inteira */
+    .block-container {
+        padding-top: 1rem !important;
+        padding-bottom: 1rem !important;
+    }
     </style>
 """
+st.markdown(ocultar_elementos, unsafe_allow_html=True)
 st.markdown(ocultar_elementos, unsafe_allow_html=True)
 # Estilização do Streamlit
 st.markdown("""
