@@ -28,23 +28,28 @@ from reportlab.pdfgen import canvas
 # Componente de Assinatura
 from streamlit_drawable_canvas import st_canvas
 
-# Ocultar elementos padrão do Streamlit
+# Ocultar elementos padrão do Streamlit e marcas d'água de plataformas (Hugging Face / Community Cloud)
 ocultar_elementos = """
     <style>
+    /* Ocultar cabeçalho, menu e rodapé padrão do Streamlit */
     #MainMenu {visibility: hidden;}
     header {visibility: hidden;}
     footer {visibility: hidden;}
     .stAppHeader {display: none;}
+    
+    /* Ocultar botões flutuantes de plataformas de hospedagem (como Hugging Face / Streamlit Cloud) */
+    div[data-testid="stStatusWidget"] {display: none !important;}
+    .viewerBadge_container__1tB2o {display: none !important;}
+    .viewerBadge_link__1S137 {display: none !important;}
+    iframe[title="huggingface-badge"] {display: none !important;}
+    button[aria-label="Manage app"] {display: none !important;}
+    
+    /* Esconde qualquer botão/badge flutuante no canto inferior direito */
+    [data-testid="stDecoration"] {display: none !important;}
+    #root > div:nth-child(2) {display: none !important;}
     </style>
 """
 st.markdown(ocultar_elementos, unsafe_allow_html=True)
-
-st.set_page_config(
-    page_title="Boletim de Sondagem Mineral",
-    page_icon="⛏️",
-    layout="wide"
-)
-
 # Estilização do Streamlit
 st.markdown("""
     <style>
