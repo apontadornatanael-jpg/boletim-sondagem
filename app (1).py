@@ -476,7 +476,7 @@ if st.session_state['manobras']:
             use_container_width=True
         )
 
-    # --- EXPORTAÇÃO PDF ABNT COM RENDERIZAÇÃO DE MAPA GARANTIDA ---
+    # --- EXPORTAÇÃO PDF ABNT COM RENDERIZAÇÃO DO MAPA IGUAL AO APP EM TEMPO REAL ---
     with col_exp2:
         class NumberedCanvas(canvas.Canvas):
             def __init__(self, *args, **kwargs):
@@ -558,45 +558,46 @@ if st.session_state['manobras']:
         elements.append(t_furo)
         elements.append(Spacer(1, 6))
 
-        # 3. GERAÇÃO E INSERÇÃO INFALÍVEL DO MAPA NO PDF
+        # 3. GERAÇÃO EM TEMPO REAL DO MAPA IGUAL AO DO APP (ESRI / OSM)
         elements.append(Paragraph("<b>1.1 Localização Geográfica do Furo</b>", abnt_sec))
         
-        img_mapa_buf = None
-        # Tentativa A: Serviço de Mapa Estático
+        fig_map, ax_map = plt.subplots(figsize=(8, 2.8), dpi=200)
+        
+        # Plota exatamente o ponto do furo idêntico ao Folium no app
+        ax_map.plot(lon_furo, lat_furo, marker='o', markersize=10, color='red', markeredgecolor='black', markeredgewidth=1.2, zorder=5)
+        ax_map.annotate(f" Furo: {furo_id}\n ({lat_furo:.6f}, {lon_furo:.6f})", 
+                        xy=(lon_furo, lat_furo), xytext=(8, 8), textcoords="offset points",
+                        fontsize=8, fontweight='bold',
+                        bbox=dict(boxstyle="round,pad=0.3", fc="#FFFFFF", ec="#EF4444", lw=1.2, alpha=0.9),
+                        zorder=6)
+
+        # Ajusta os limites e tenta adicionar os tiles de mapa idênticos ao Folium
+        delta = 0.003
+        ax_map.set_xlim(lon_furo - delta, lon_furo + delta)
+        ax_map.set_ylim(lat_furo - delta/1.8, lat_furo + delta/1.8)
+        
         try:
-            url_mapa = f"https://maps.googleapis.com/maps/api/staticmap?center={lat_furo},{lon_furo}&zoom=15&size=600x200&maptype=satellite&markers=color:red%7Clabel:F%7C{lat_furo},{lon_furo}"
-            res = requests.get(url_mapa, timeout=3)
-            if res.status_code == 200:
-                img_mapa_buf = io.BytesIO(res.content)
+            import contextily as cx
+            cx.add_basemap(ax_map, crs='EPSG:4326', source=cx.providers.Esri.WorldImagery, zoom=16)
         except Exception:
-            img_mapa_buf = None
+            # Fallback limpo mantendo a precisão cartográfica
+            ax_map.set_facecolor('#F1F5F9')
+            ax_map.grid(True, linestyle='--', alpha=0.7, color='#94A3B8')
 
-        # Tentativa B (Garantia Absoluta): Renderização de Croqui Cartográfico via Matplotlib
-        if not img_mapa_buf:
-            fig_map, ax_map = plt.subplots(figsize=(8, 2.5), dpi=200)
-            ax_map.set_facecolor('#E0F2FE')
-            ax_map.plot(lon_furo, lat_furo, marker='o', markersize=10, color='red', markeredgecolor='black', markeredgewidth=1.5)
-            ax_map.text(lon_furo, lat_furo + 0.0008, f"FURO: {furo_id}\nUTM (E/N): {utm_e:.1f} / {utm_n:.1f}", ha='center', va='bottom', fontsize=8, fontweight='bold', bbox=dict(boxstyle='round,pad=0.3', facecolor='white', edgecolor='#0284C7'))
-            
-            # Grade Geográfica de Referência
-            delta = 0.005
-            ax_map.set_xlim(lon_furo - delta, lon_furo + delta)
-            ax_map.set_ylim(lat_furo - delta/2, lat_furo + delta/2)
-            ax_map.grid(True, linestyle='--', alpha=0.6, color='#94A3B8')
-            ax_map.set_xlabel("Longitude (°)", fontsize=7)
-            ax_map.set_ylabel("Latitude (°)", fontsize=7)
-            ax_map.tick_params(labelsize=7)
-            ax_map.set_title(f"Planta de Localização Georeferenciada - Furo {furo_id} ({datum})", fontsize=8, fontweight='bold', color='#0F172A')
-            plt.tight_layout()
-            
-            img_mapa_buf = io.BytesIO()
-            fig_map.savefig(img_mapa_buf, format='png', bbox_inches='tight')
-            img_mapa_buf.seek(0)
-            plt.close(fig_map)
+        ax_map.set_xlabel("Longitude (°)", fontsize=7, fontweight='bold')
+        ax_map.set_ylabel("Latitude (°)", fontsize=7, fontweight='bold')
+        ax_map.tick_params(labelsize=7)
+        ax_map.set_title(f"Planta de Localização em Tempo Real - Furo {furo_id}", fontsize=8, fontweight='bold', color='#0F172A')
+        plt.tight_layout()
 
-        elements.append(Paragraph(f"<b>Figura 1</b> – Croqui e coordenadas de localização geográfica do Furo {furo_id}.", abnt_caption))
-        elements.append(RLImage(img_mapa_buf, width=16.0*cm, height=4.5*cm))
-        elements.append(Paragraph("Fonte: Sistema de Coordenadas do Projeto (2026).", abnt_fonte))
+        img_mapa_buf = io.BytesIO()
+        fig_map.savefig(img_mapa_buf, format='png', bbox_inches='tight')
+        img_mapa_buf.seek(0)
+        plt.close(fig_map)
+
+        elements.append(Paragraph(f"<b>Figura 1</b> – Mapa de localização em tempo real do Furo {furo_id}.", abnt_caption))
+        elements.append(RLImage(img_mapa_buf, width=16.0*cm, height=5.2*cm))
+        elements.append(Paragraph("Fonte: Esri World Imagery / Sistema de Coordenadas do Projeto (2026).", abnt_fonte))
 
         elements.append(Spacer(1, 4))
 
