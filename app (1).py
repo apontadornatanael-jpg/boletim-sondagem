@@ -6,6 +6,7 @@ import io
 import json
 from datetime import datetime
 from PIL import Image
+import requests  # Importado para requisição da imagem estática de satélite
 
 import folium
 from streamlit_folium import st_folium
@@ -23,8 +24,6 @@ from reportlab.lib.units import cm
 
 # Componente de Assinatura
 from streamlit_drawable_canvas import st_canvas
-
-import streamlit as st
 
 # CSS para esconder o menu superior, o ícone do GitHub e o rodapé
 ocultar_elementos = """
@@ -89,15 +88,15 @@ st.markdown("""
 
 # DICIONÁRIO LITOLÓGICO: COR + HACHURAS DENSA E VISÍVEIS
 DADOS_LITOLOGIA = {
-    'Solo / Cobertura':        {'cor': '#E5D3B3', 'hatch': '....'},
-    'Siltito / Argilito':      {'cor': '#D2B48C', 'hatch': '----'},
-    'Quartzito':               {'cor': '#FFF8DC', 'hatch': '////'},
-    'Schisto / Filito':        {'cor': '#94A3B8', 'hatch': '\\\\\\\\'},
-    'Gnaisse / Granito':       {'cor': '#E2E8F0', 'hatch': '++++'},
-    'Basalto / Diabásio':      {'cor': '#475569', 'hatch': 'xxxx'},
+    'Solo / Cobertura':       {'cor': '#E5D3B3', 'hatch': '....'},
+    'Siltito / Argilito':     {'cor': '#D2B48C', 'hatch': '----'},
+    'Quartzito':              {'cor': '#FFF8DC', 'hatch': '////'},
+    'Schisto / Filito':       {'cor': '#94A3B8', 'hatch': '\\\\\\\\'},
+    'Gnaisse / Granito':      {'cor': '#E2E8F0', 'hatch': '++++'},
+    'Basalto / Diabásio':     {'cor': '#475569', 'hatch': 'xxxx'},
     'Minério de Ferro / BIF': {'cor': '#991B1B', 'hatch': '||||'},
-    'Calcário / Dolomito':     {'cor': '#BAE6FD', 'hatch': 'OOOO'},
-    'Outro':                   {'cor': '#CBD5E1', 'hatch': ''}
+    'Calcário / Dolomito':    {'cor': '#BAE6FD', 'hatch': 'OOOO'},
+    'Outro':                  {'cor': '#CBD5E1', 'hatch': ''}
 }
 
 if 'manobras' not in st.session_state:
@@ -623,6 +622,36 @@ if st.session_state['manobras']:
         elements.append(t_furo)
         elements.append(Spacer(1, 4))
 
+        # --- SEÇÃO INSERIDA: VISÃO REAL DE SATÉLITE NO PDF ---
+        elements.append(Paragraph(" 1.1 LOCALIZAÇÃO E VISÃO DE SATÉLITE REAL", pdf_sec))
+        try:
+            # Requisita a imagem real de satélite centralizada nas coordenadas do furo
+            url_satelite = f"https://static-maps.yandex.ru/1.x/?lang=pt_BR&ll={lon_furo},{lat_furo}&z=15&size=600,220&l=sat&pt={lon_furo},{lat_furo},pm2rdm"
+            res = requests.get(url_satelite, timeout=5)
+            if res.status_code == 200:
+                img_sat_buf = io.BytesIO(res.content)
+                img_sat_pdf = RLImage(img_sat_buf, width=19.0*cm, height=5.0*cm)
+                
+                # Tabela estilizada contendo a imagem e a legenda com coordenadas
+                map_table_data = [
+                    [img_sat_pdf],
+                    [Paragraph(f"<b>COORDENADAS GPS:</b> LATITUDE {lat_furo:.6f}° | LONGITUDE {lon_furo:.6f}° ({datum})", pdf_text_center)]
+                ]
+                t_mapa = Table(map_table_data, colWidths=[19.0*cm])
+                t_mapa.setStyle(TableStyle([
+                    ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+                    ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+                    ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
+                    ('BACKGROUND', (0,1), (0,1), colors.HexColor('#E9EEF4')),
+                    ('TOPPADDING', (0,0), (-1,-1), 2),
+                    ('BOTTOMPADDING', (0,0), (-1,-1), 2),
+                ]))
+                elements.append(t_mapa)
+        except Exception:
+            elements.append(Paragraph("<i>(Não foi possível carregar a imagem de satélite no momento)</i>", pdf_text))
+
+        elements.append(Spacer(1, 4))
+
         elements.append(Paragraph(" 2. REGISTRO DE MANOBRAS E GEOTECNIA", pdf_sec_blue))
         
         table_manobras_data = [
@@ -670,73 +699,79 @@ if st.session_state['manobras']:
         elements.append(PageBreak())
         elements.append(Paragraph(" 3. PERFIL STRATIGRÁFICO VISUAL E CURVAS DE RECUPERAÇÃO/RQD", pdf_sec_blue))
 
-        # 1. Converter Fig do Matplotlib para Imagem no PDF
+        # Converter Fig do Matplotlib para Imagem no PDF
         img_plt_buf = io.BytesIO()
         fig.savefig(img_plt_buf, format='png', dpi=200, bbox_inches='tight')
         img_plt_buf.seek(0)
-        elements.append(RLImage(img_plt_buf, width=18*cm, height=8.5*cm))
-        elements.append(Spacer(1, 6))
+        
+        img_perfil_pdf = RLImage(img_plt_buf, width=19.0*cm, height=9.0*cm)
+        elements.append(img_perfil_pdf)
+        elements.append(Spacer(1, 10))
 
-        # 2. Anexar Galeria de Fotos no PDF (se houver)
+        # GALERIA DE FOTOS NO PDF
+        elements.append(Paragraph(" 4. REGISTRO FOTOGRÁFICO DOS TESTEMUNHOS DE SONDAGEM", pdf_sec))
         fotos_list = [m['Foto'] for m in st.session_state['manobras'] if m['Foto'] is not None]
+        
         if fotos_list:
-            elements.append(Paragraph(" 4. REGISTRO FOTOGRÁFICO DAS CAIXAS DE TESTEMUNHO", pdf_sec))
-            grid_fotos = []
-            linha_atual = []
-            for idx_f, f_img in enumerate(fotos_list):
-                img_buf_item = io.BytesIO()
-                f_img.save(img_buf_item, format='PNG')
-                img_buf_item.seek(0)
-                rl_foto = RLImage(img_buf_item, width=5.5*cm, height=3.5*cm)
-                linha_atual.append(rl_foto)
-                if len(linha_atual) == 3:
-                    grid_fotos.append(linha_atual)
-                    linha_atual = []
-            if linha_atual:
-                while len(linha_atual) < 3:
-                    linha_atual.append(Paragraph("", pdf_text))
-                grid_fotos.append(linha_atual)
+            fotos_grid = []
+            row_temp = []
+            for idx, img_p in enumerate(fotos_list):
+                img_b = io.BytesIO()
+                img_p.save(img_b, format='PNG')
+                img_b.seek(0)
+                rl_img = RLImage(img_b, width=4.2*cm, height=3.0*cm)
+                row_temp.append(rl_img)
+                if len(row_temp) == 4:
+                    fotos_grid.append(row_temp)
+                    row_temp = []
+            if row_temp:
+                while len(row_temp) < 4:
+                    row_temp.append(Paragraph("", pdf_text))
+                fotos_grid.append(row_temp)
 
-            t_galeria = Table(grid_fotos, colWidths=[6.0*cm, 6.0*cm, 6.0*cm])
-            t_galeria.setStyle(TableStyle([
+            t_fotos = Table(fotos_grid, colWidths=[4.75*cm, 4.75*cm, 4.75*cm, 4.75*cm])
+            t_fotos.setStyle(TableStyle([
                 ('ALIGN', (0,0), (-1,-1), 'CENTER'),
                 ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+                ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#E2E8F0')),
+                ('TOPPADDING', (0,0), (-1,-1), 4),
                 ('BOTTOMPADDING', (0,0), (-1,-1), 4),
             ]))
-            elements.append(t_galeria)
-            elements.append(Spacer(1, 6))
+            elements.append(t_fotos)
+        else:
+            elements.append(Paragraph("<i>Nenhuma foto registrada para este furo.</i>", pdf_text))
 
-        # 3. Processamento da Assinatura Digital do Canvas
-        rl_ass_img = Paragraph("________________________________________", pdf_text_center)
-        if canvas_result is not None and canvas_result.image_data is not None:
-            ass_array = canvas_result.image_data
-            if ass_array.max() > 0: # Verifica se há traços desenhados
-                img_ass_pil = Image.fromarray(ass_array.astype('uint8'), 'RGBA')
-                ass_buf = io.BytesIO()
-                img_ass_pil.save(ass_buf, format='PNG')
-                ass_buf.seek(0)
-                rl_ass_img = RLImage(ass_buf, width=5.0*cm, height=1.5*cm)
+        elements.append(Spacer(1, 15))
 
-        # Tabela de Assinaturas no Rodapé do PDF
-        dados_ass = [
-            [rl_ass_img, Paragraph("________________________________________", pdf_text_center)],
-            [Paragraph(f"<b>Geólogo Resp.:</b> {geologo}", pdf_text_center), Paragraph(f"<b>Supervisor/Coordenador:</b> {supervisor}", pdf_text_center)]
+        # ASSINATURA DIGITAL NO PDF
+        elements.append(Paragraph(" 5. ENCERRAMENTO E ASSINATURA TÉCNICA", pdf_sec_blue))
+        
+        if canvas_result.image_data is not None:
+            img_ass = Image.fromarray(canvas_result.image_data.astype('uint8'))
+            ass_buf = io.BytesIO()
+            img_ass.save(ass_buf, format='PNG')
+            ass_buf.seek(0)
+            rl_ass = RLImage(ass_buf, width=6.0*cm, height=2.0*cm)
+        else:
+            rl_ass = Paragraph("<br/><br/>___________________________________<br/>Assinatura do Responsável", pdf_text_center)
+
+        sig_table_data = [
+            [rl_ass, Paragraph(f"<br/><br/><b>{geologo}</b><br/>Geólogo Responsável", pdf_text_center)],
         ]
-        t_ass = Table(dados_ass, colWidths=[9.5*cm, 9.5*cm])
-        t_ass.setStyle(TableStyle([
+        t_sig = Table(sig_table_data, colWidths=[9.5*cm, 9.5*cm])
+        t_sig.setStyle(TableStyle([
             ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-            ('VALIGN', (0,0), (-1,-1), 'BOTTOM'),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
         ]))
-        elements.append(Spacer(1, 10))
-        elements.append(t_ass)
+        elements.append(t_sig)
 
+        # GERAÇÃO FINAL DO PDF
         doc.build(elements)
-        pdf_data = pdf_buf.getvalue()
-
+        
         st.download_button(
-            label="📄 Baixar Relatório PDF Completo (com Gráficos e Fotos)",
-            data=pdf_data,
-            file_name=f"Relatorio_Sondagem_{furo_id}.pdf",
+            label="📄 Baixar Boletim Oficial (.pdf)",
+            data=pdf_buf.getvalue(),
+            file_name=f"Boletim_Oficial_{furo_id}.pdf",
             mime="application/pdf",
             use_container_width=True
         )
