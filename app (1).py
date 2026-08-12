@@ -25,6 +25,106 @@ from reportlab.lib.units import cm
 from streamlit_drawable_canvas import st_canvas
 
 import streamlit as st
+import requests
+from weasyprint import HTML
+
+def gerar_pdf_com_satelite_real(latitude, longitude, ponto_id):
+    # 1. URL da API do mapa de satélite estático baseado no Esri / Mapbox
+    # Usando o serviço de imagem estática de satélite com marcador
+    zoom = 15
+    largura = 600
+    altura = 300
+    
+    # URL do serviço de mapa estático de satélite (visão real)
+    # Nota: você pode usar Yandex Satélite, Mapbox Static ou ArcGIS Static Image Service
+    url_mapa_satelite = (
+        f"https://static-maps.yandex.ru/1.x/?"
+        f"lang=pt_BR&ll={longitude},{latitude}&z={zoom}&size={largura},{altura}&l=sat&pt={longitude},{latitude},pm2rdm"
+    )
+
+    # 2. Template HTML estruturado para o PDF
+    html_content = f"""
+    <!DOCTYPE html>
+    <html lang="pt-BR">
+    <head>
+        <meta charset="UTF-8">
+        <style>
+            @page {{ size: A4; margin: 12mm 10mm; }}
+            body {{ font-family: Arial, sans-serif; color: #0f172a; margin: 0; padding: 0; }}
+            .header {{ background-color: #0f172a; color: #ffffff; padding: 15px 12mm; margin: -12mm -10mm 15px -10mm; }}
+            .header h2 {{ margin: 0; font-size: 16pt; }}
+            .header p {{ margin: 4px 0 0 0; font-size: 9pt; color: #94a3b8; }}
+            
+            .data-grid {{ width: 100%; border-collapse: collapse; margin-bottom: 15px; }}
+            .data-grid td {{ padding: 8px 10px; border: 1px solid #cbd5e1; width: 50%; }}
+            .label {{ font-size: 8pt; color: #64748b; font-weight: bold; text-transform: uppercase; display: block; }}
+            .value {{ font-size: 11pt; font-weight: bold; color: #0f172a; }}
+
+            .map-container {{
+                border: 1px solid #cbd5e1;
+                border-radius: 6px;
+                padding: 6px;
+                background-color: #f8fafc;
+                text-align: center;
+            }}
+            .map-image {{
+                width: 100%;
+                height: auto;
+                max-height: 350px;
+                border-radius: 4px;
+                display: block;
+            }}
+            .map-credits {{
+                font-size: 7.5pt;
+                color: #64748b;
+                text-align: right;
+                margin-top: 4px;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <h2>Boletim Digital de Sondagem Mineral</h2>
+            <p>Relatório Geográfico de Campo - Imagem de Satélite</p>
+        </div>
+
+        <table class="data-grid">
+            <tr>
+                <td><span class="label">Identificação</span><div class="value">{ponto_id}</div></td>
+                <td><span class="label">Datum</span><div class="value">SIRGAS 2000</div></td>
+            </tr>
+            <tr>
+                <td><span class="label">Latitude</span><div class="value">{latitude:.6f}°</div></td>
+                <td><span class="label">Longitude</span><div class="value">{longitude:.6f}°</div></td>
+            </tr>
+        </table>
+
+        <h3 style="font-size: 11pt; color: #0f172a; margin: 10px 0 6px 0;">Localização em Imagem de Satélite</h3>
+        
+        <div class="map-container">
+            <img src="{url_mapa_satelite}" class="map-image" alt="Mapa de Satélite Real" />
+            <div class="map-credits">Esri World Imagery / Leaflet Satellite View</div>
+        </div>
+    </body>
+    </html>
+    """
+    
+    return HTML(string=html_content).write_pdf()
+
+# Exemplo de integração no Streamlit:
+lat = -6.512345
+lon = -36.512345
+
+pdf_bytes = gerar_pdf_com_satelite_real(lat, lon, "Furo F-001")
+
+st.download_button(
+    label="📄 Baixar PDF com Visão Real de Satélite",
+    data=pdf_bytes,
+    file_name="boletim_sondagem_satelite.pdf",
+    mime="application/pdf"
+)
+
+import streamlit as st
 
 # CSS para esconder o menu superior, o ícone do GitHub e o rodapé
 ocultar_elementos = """
