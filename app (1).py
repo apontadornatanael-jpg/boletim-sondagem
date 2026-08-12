@@ -80,15 +80,15 @@ st.markdown("""
 
 # DICIONÁRIO LITOLÓGICO
 DADOS_LITOLOGIA = {
-    'Solo / Cobertura':       {'cor': '#E5D3B3', 'hatch': '....'},
-    'Siltito / Argilito':     {'cor': '#D2B48C', 'hatch': '----'},
-    'Quartzito':              {'cor': '#FFF8DC', 'hatch': '////'},
-    'Schisto / Filito':       {'cor': '#94A3B8', 'hatch': '\\\\\\\\'},
-    'Gnaisse / Granito':      {'cor': '#E2E8F0', 'hatch': '++++'},
-    'Basalto / Diabásio':     {'cor': '#475569', 'hatch': 'xxxx'},
+    'Solo / Cobertura':        {'cor': '#E5D3B3', 'hatch': '....'},
+    'Siltito / Argilito':      {'cor': '#D2B48C', 'hatch': '----'},
+    'Quartzito':               {'cor': '#FFF8DC', 'hatch': '////'},
+    'Schisto / Filito':        {'cor': '#94A3B8', 'hatch': '\\\\\\\\'},
+    'Gnaisse / Granito':       {'cor': '#E2E8F0', 'hatch': '++++'},
+    'Basalto / Diabásio':      {'cor': '#475569', 'hatch': 'xxxx'},
     'Minério de Ferro / BIF': {'cor': '#991B1B', 'hatch': '||||'},
-    'Calcário / Dolomito':    {'cor': '#BAE6FD', 'hatch': 'OOOO'},
-    'Outro':                  {'cor': '#CBD5E1', 'hatch': ''}
+    'Calcário / Dolomito':     {'cor': '#BAE6FD', 'hatch': 'OOOO'},
+    'Outro':                   {'cor': '#CBD5E1', 'hatch': ''}
 }
 
 if 'manobras' not in st.session_state:
@@ -269,35 +269,184 @@ if st.session_state['manobras']:
 
     col_exp1, col_exp2 = st.columns(2)
 
-    # --- EXPORTAÇÃO EXCEL ---
+    # --- EXPORTAÇÃO EXCEL REFORMULADA E COMPLETA ---
     with col_exp1:
-        # Mantida a lógica do Excel funcional e estilizada
         buffer_xls = io.BytesIO()
         wb = openpyxl.Workbook()
         ws = wb.active
-        ws.title = "Boletim ABNT"
+        ws.title = "Boletim de Sondagem"
         ws.views.sheetView[0].showGridLines = True
-        
+
+        # Estilos Profissionais de Células
+        font_titulo = Font(name='Calibri', size=14, bold=True, color='FFFFFF')
+        font_sub = Font(name='Calibri', size=10, italic=True, color='FFFFFF')
+        font_sec = Font(name='Calibri', size=11, bold=True, color='0F172A')
+        font_header = Font(name='Calibri', size=10, bold=True, color='FFFFFF')
+        font_body = Font(name='Calibri', size=10)
+        font_total = Font(name='Calibri', size=10, bold=True)
+
+        fill_banner = PatternFill(start_color='0284C7', end_color='0284C7', fill_type='solid')
+        fill_sec = PatternFill(start_color='E0F2FE', end_color='E0F2FE', fill_type='solid')
+        fill_header = PatternFill(start_color='0369A1', end_color='0369A1', fill_type='solid')
+        fill_zebra = PatternFill(start_color='F8FAFC', end_color='F8FAFC', fill_type='solid')
+        fill_total = PatternFill(start_color='F1F5F9', end_color='F1F5F9', fill_type='solid')
+
+        thin_border = Border(
+            left=Side(style='thin', color='CBD5E1'),
+            right=Side(style='thin', color='CBD5E1'),
+            top=Side(style='thin', color='CBD5E1'),
+            bottom=Side(style='thin', color='CBD5E1')
+        )
+        double_bottom = Border(
+            top=Side(style='thin', color='0F172A'),
+            bottom=Side(style='double', color='0F172A')
+        )
+
+        align_center = Alignment(horizontal='center', vertical='center')
+        align_left = Alignment(horizontal='left', vertical='center')
+        align_right = Alignment(horizontal='right', vertical='center')
+
+        # 1. Banners de Título
         ws.merge_cells('A1:L1')
-        ws['A1'] = f"RELATÓRIO TÉCNICO DE SONDAGEM - {empresa.upper()}"
-        ws['A1'].font = Font(name='Calibri', size=14, bold=True)
-        ws['A1'].alignment = Alignment(horizontal='center')
+        ws['A1'] = empresa.upper()
+        ws['A1'].font = font_titulo
+        ws['A1'].fill = fill_banner
+        ws['A1'].alignment = align_center
 
+        ws.merge_cells('A2:L2')
+        ws['A2'] = f"BOLETIM TÉCNICO DE SONDAGEM GEOLÓGICA - FURO {furo_id}"
+        ws['A2'].font = font_sub
+        ws['A2'].fill = fill_banner
+        ws['A2'].alignment = align_center
+
+        ws.row_dimensions[1].height = 25
+        ws.row_dimensions[2].height = 18
+
+        # 2. Bloco de Cabeçalho do Projeto
+        ws.merge_cells('A4:L4')
+        ws['A4'] = "1. DADOS DE GESTÃO E LOCALIZAÇÃO"
+        ws['A4'].font = font_sec
+        ws['A4'].fill = fill_sec
+        ws['A4'].alignment = align_left
+
+        dados_header = [
+            [("Projeto:", projeto), ("Coordenador:", coordenador), ("UTM (E):", utm_e), ("Latitude:", lat_furo)],
+            [("ID Furo:", furo_id), ("Supervisor:", supervisor), ("UTM (N):", utm_n), ("Longitude:", lon_furo)],
+            [("Diâmetro:", diametro), ("Geólogo Resp.:", geologo), ("Cota Z (m):", cota_z), ("Início:", str(data_inicio))],
+            [("Inclin./Az.:", f"{inclinacao}° / {azimute}°"), ("Sondador:", sondador), ("Datum:", datum), ("Término:", str(data_fim))]
+        ]
+
+        curr_row = 5
+        for row in dados_header:
+            col_pairs = [(1,2,3), (4,5,6), (7,8,9), (10,11,12)]
+            for idx, (lbl, val) in enumerate(row):
+                c_lbl, c_val_start, c_val_end = col_pairs[idx]
+                ws.cell(row=curr_row, column=c_lbl, value=lbl).font = Font(name='Calibri', size=10, bold=True)
+                ws.cell(row=curr_row, column=c_lbl).alignment = align_left
+                
+                if c_val_start != c_val_end:
+                    ws.merge_cells(start_row=curr_row, start_column=c_val_start, end_row=curr_row, end_column=c_val_end)
+                cell_v = ws.cell(row=curr_row, column=c_val_start, value=val)
+                cell_v.font = font_body
+                cell_v.alignment = align_left
+            curr_row += 1
+
+        # 3. Tabela de Manobras
+        curr_row += 1
+        ws.merge_cells(f'A{curr_row}:L{curr_row}')
+        ws[f'A{curr_row}'] = "2. REGISTRO DE MANOBRAS E PARÂMETROS GEOTÉCNICOS"
+        ws[f'A{curr_row}'].font = font_sec
+        ws[f'A{curr_row}'].fill = fill_sec
+        ws[f'A{curr_row}'].alignment = align_left
+
+        curr_row += 1
         df_excel = df_manobras.drop(columns=['Foto'])
+        
+        # Cabeçalhos da Tabela
         for c_idx, col_name in enumerate(df_excel.columns, 1):
-            ws.cell(row=3, column=c_idx, value=col_name).font = Font(bold=True)
+            cell = ws.cell(row=curr_row, column=c_idx, value=col_name)
+            cell.font = font_header
+            cell.fill = fill_header
+            cell.alignment = align_center
+            cell.border = thin_border
+        ws.row_dimensions[curr_row].height = 22
 
+        # Linhas de Dados
+        header_row_idx = curr_row
+        curr_row += 1
         for r_idx, row in df_excel.iterrows():
+            row_fill = fill_zebra if r_idx % 2 == 1 else PatternFill(fill_type=None)
             for c_idx, val in enumerate(row.values, 1):
-                ws.cell(row=r_idx + 4, column=c_idx, value=val)
+                cell = ws.cell(row=curr_row, column=c_idx, value=val)
+                cell.font = font_body
+                cell.border = thin_border
+                cell.fill = row_fill
+                
+                # Formatação de números
+                if isinstance(val, (int, float)):
+                    cell.alignment = align_right
+                    if "Rec (%)" in df_excel.columns[c_idx-1] or "RQD (%)" in df_excel.columns[c_idx-1]:
+                        cell.number_format = '0.0'
+                    elif "m" in df_excel.columns[c_idx-1]:
+                        cell.number_format = '0.00'
+                else:
+                    cell.alignment = align_center if c_idx == 1 else align_left
+            curr_row += 1
+
+        # Linha de Totais/Médias
+        ws.cell(row=curr_row, column=1, value="Total / Média").font = font_total
+        ws.cell(row=curr_row, column=1).alignment = align_center
+        ws.cell(row=curr_row, column=1).fill = fill_total
+        ws.cell(row=curr_row, column=1).border = double_bottom
+
+        for c_idx in range(2, len(df_excel.columns) + 1):
+            col_name = df_excel.columns[c_idx-1]
+            cell = ws.cell(row=curr_row, column=c_idx)
+            cell.font = font_total
+            cell.fill = fill_total
+            cell.border = double_bottom
+            cell.alignment = align_right
+
+            start_letter = get_column_letter(c_idx)
+            start_cell = f"{start_letter}{header_row_idx + 1}"
+            end_cell = f"{start_letter}{curr_row - 1}"
+
+            if col_name in ['Avanço (m)', 'Rec. (m)', 'RQD (m)']:
+                cell.value = f"=SUM({start_cell}:{end_cell})"
+                cell.number_format = '0.00'
+            elif col_name in ['Rec (%)', 'RQD (%)']:
+                cell.value = f"=AVERAGE({start_cell}:{end_cell})"
+                cell.number_format = '0.0%'
+            else:
+                cell.value = "-"
+                cell.alignment = align_center
+
+        # 4. Ajuste Automático de Largura das Colunas
+        for col in ws.columns:
+            max_len = 0
+            col_letter = get_column_letter(col[0].column)
+            for cell in col:
+                # Ignora células mescladas para cálculo de largura
+                if cell.coordinate in ws.merged_cells:
+                    continue
+                if cell.value:
+                    val_str = str(cell.value)
+                    if len(val_str) > max_len:
+                        max_len = len(val_str)
+            ws.column_dimensions[col_letter].width = max(max_len + 3, 11)
 
         wb.save(buffer_xls)
-        st.download_button("📄 Baixar Planilha (.xlsx)", buffer_xls.getvalue(), f"Boletim_{furo_id}.xlsx", use_container_width=True)
+        st.download_button(
+            label="📊 Baixar Planilha Excel (.xlsx)",
+            data=buffer_xls.getvalue(),
+            file_name=f"Boletim_{furo_id}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True
+        )
 
-    # --- EXPORTAÇÃO PDF NORMA ABNT ---
+    # --- EXPORTAÇÃO PDF NORMA ABNT REFINADO ---
     with col_exp2:
         
-        # CLASSE CANVAS CUSTOMIZADA PARA PAGINAÇÃO ABNT
         class NumberedCanvas(canvas.Canvas):
             def __init__(self, *args, **kwargs):
                 super().__init__(*args, **kwargs)
@@ -316,16 +465,13 @@ if st.session_state['manobras']:
                 super().save()
 
             def draw_page_number(self, page_count):
-                # ABNT: Numeração no canto superior direito a partir da página 2
                 if self._pageNumber > 1:
-                    self.setFont("Times-Roman", 10)
+                    self.setFont("Times-Roman", 9)
                     text = f"Página {self._pageNumber} de {page_count}"
-                    # Margem direita = 21.0cm - 2.0cm = 19.0cm
                     self.drawRightString(19.0 * cm, 28.0 * cm, text)
 
         pdf_buf = io.BytesIO()
         
-        # Margens ABNT NBR 14724: Sup: 3cm, Esq: 3cm, Dir: 2cm, Inf: 2cm
         doc = SimpleDocTemplate(
             pdf_buf, pagesize=portrait(A4),
             leftMargin=3.0*cm, rightMargin=2.0*cm,
@@ -334,19 +480,22 @@ if st.session_state['manobras']:
         elements = []
         styles = getSampleStyleSheet()
 
-        # ESTILOS CONFORME REGRA ABNT (Fonte Padrão: Times-Roman)
-        abnt_titulo_doc = ParagraphStyle('ABNTTituloDoc', parent=styles['Heading1'], fontName='Times-Bold', fontSize=14, leading=16, alignment=1, spaceAfter=15)
-        abnt_sec = ParagraphStyle('ABNTSec', parent=styles['Heading2'], fontName='Times-Bold', fontSize=12, leading=14, spaceBefore=12, spaceAfter=6)
-        abnt_text = ParagraphStyle('ABNTText', parent=styles['Normal'], fontName='Times-Roman', fontSize=10, leading=13)
-        abnt_text_bold = ParagraphStyle('ABNTTextBold', parent=styles['Normal'], fontName='Times-Bold', fontSize=10, leading=13)
-        abnt_caption = ParagraphStyle('ABNTCaption', parent=styles['Italic'], fontName='Times-Italic', fontSize=9, leading=11, alignment=1, spaceAfter=4)
-        abnt_fonte = ParagraphStyle('ABNTFonte', parent=styles['Italic'], fontName='Times-Roman', fontSize=8, leading=10, alignment=1, spaceBefore=4, spaceAfter=10)
+        # ESTILOS REFINADOS ABNT
+        abnt_titulo_doc = ParagraphStyle('ABNTTituloDoc', parent=styles['Heading1'], fontName='Times-Bold', fontSize=13, leading=15, alignment=1, spaceAfter=4)
+        abnt_sub_doc = ParagraphStyle('ABNTSubDoc', parent=styles['Normal'], fontName='Times-Roman', fontSize=10, leading=12, alignment=1, spaceAfter=15)
+        abnt_sec = ParagraphStyle('ABNTSec', parent=styles['Heading2'], fontName='Times-Bold', fontSize=11, leading=13, spaceBefore=10, spaceAfter=6)
+        abnt_text = ParagraphStyle('ABNTText', parent=styles['Normal'], fontName='Times-Roman', fontSize=8.5, leading=11)
+        abnt_text_bold = ParagraphStyle('ABNTTextBold', parent=styles['Normal'], fontName='Times-Bold', fontSize=8.5, leading=11)
+        abnt_th = ParagraphStyle('ABNTTH', parent=styles['Normal'], fontName='Times-Bold', fontSize=8, leading=9, alignment=1)
+        abnt_td = ParagraphStyle('ABNTTD', parent=styles['Normal'], fontName='Times-Roman', fontSize=8, leading=10, alignment=1)
+        abnt_caption = ParagraphStyle('ABNTCaption', parent=styles['Italic'], fontName='Times-Italic', fontSize=8.5, leading=10, alignment=0, spaceAfter=4)
+        abnt_fonte = ParagraphStyle('ABNTFonte', parent=styles['Italic'], fontName='Times-Roman', fontSize=7.5, leading=9, alignment=0, spaceBefore=3, spaceAfter=8)
 
-        # 1. CABEÇALHO DO DOCUMENTO TÉCNICO ABNT
+        # 1. CABEÇALHO TÉCNICO E INSTITUCIONAL
         elements.append(Paragraph(f"<b>{empresa.upper()}</b>", abnt_titulo_doc))
-        elements.append(Paragraph(f"<b>RELATÓRIO TÉCNICO DE SONDAGEM GEOLÓGICA - FURO {furo_id}</b>", ParagraphStyle('Sub', parent=abnt_titulo_doc, fontSize=12, spaceAfter=20)))
+        elements.append(Paragraph(f"RELATÓRIO TÉCNICO DE SONDAGEM GEOLÓGICA — FURO <b>{furo_id}</b>", abnt_sub_doc))
 
-        # 2. SEÇÃO 1: DADOS DE GESTÃO E LOCALIZAÇÃO
+        # 2. DADOS DE GESTÃO E LOCALIZAÇÃO
         elements.append(Paragraph("<b>1. DADOS DE GESTÃO E LOCALIZAÇÃO DO FURO</b>", abnt_sec))
         
         prof_total_val = float(df_manobras['Para (m)'].max())
@@ -359,82 +508,83 @@ if st.session_state['manobras']:
             [Paragraph("<b>Inclin. / Azimute:</b>", abnt_text), Paragraph(f"{inclinacao}° / {azimute}°", abnt_text), Paragraph("<b>Prof. Total:</b>", abnt_text), Paragraph(f"{prof_total_val:.2f} m", abnt_text_bold)],
         ]
         
-        # Largura útil da página = 21.0 cm - 3.0 cm (Esq) - 2.0 cm (Dir) = 16.0 cm
-        t_furo = Table(dados_furo_table, colWidths=[3.2*cm, 4.8*cm, 3.2*cm, 4.8*cm])
+        t_furo = Table(dados_furo_table, colWidths=[3.0*cm, 5.0*cm, 3.0*cm, 5.0*cm])
         t_furo.setStyle(TableStyle([
-            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#000000')),
+            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#475569')),
             ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-            ('TOPPADDING', (0,0), (-1,-1), 3),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 3),
+            ('TOPPADDING', (0,0), (-1,-1), 2.5),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 2.5),
+            ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#F8FAFC'))
         ]))
         elements.append(t_furo)
-        elements.append(Spacer(1, 10))
+        elements.append(Spacer(1, 6))
 
-        # 3. IMAGEM DE SATÉLITE (LEGENDA E FONTE PADRÃO ABNT)
-        elements.append(Paragraph("<b>1.1 Localização Real de Satélite</b>", abnt_sec))
+        # 3. LOCALIZAÇÃO DE SATÉLITE
+        elements.append(Paragraph("<b>1.1 Localização de Satélite do Furo</b>", abnt_sec))
         try:
-            url_satelite = f"https://static-maps.yandex.ru/1.x/?lang=pt_BR&ll={lon_furo},{lat_furo}&z=15&size=600,200&l=sat&pt={lon_furo},{lat_furo},pm2rdm"
+            url_satelite = f"https://staticmap.openstreetmap.de/staticmap.php?center={lat_furo},{lon_furo}&zoom=15&size=600x180&maptype=mapnik&markers={lat_furo},{lon_furo},red-pushpin"
             res = requests.get(url_satelite, timeout=5)
             if res.status_code == 200:
                 img_sat_buf = io.BytesIO(res.content)
-                img_sat_pdf = RLImage(img_sat_buf, width=16.0*cm, height=4.5*cm)
+                img_sat_pdf = RLImage(img_sat_buf, width=16.0*cm, height=4.2*cm)
                 
-                elements.append(Paragraph(f"<b>Figura 1</b> – Imagem de satélite da localização do furo {furo_id}.", abnt_caption))
+                elements.append(Paragraph(f"<b>Figura 1</b> – Imagem de satélite e localização geográfica do Furo {furo_id}.", abnt_caption))
                 elements.append(img_sat_pdf)
-                elements.append(Paragraph("Fonte: Adaptado de Yandex Maps (2026).", abnt_fonte))
+                elements.append(Paragraph("Fonte: Adaptado de OpenStreetMap (2026).", abnt_fonte))
         except Exception:
-            elements.append(Paragraph("<i>(Imagem de satélite indisponível no momento da geração)</i>", abnt_text))
+            elements.append(Paragraph("<i>(Imagem de satélite indisponível no momento)</i>", abnt_text))
 
-        elements.append(Spacer(1, 10))
+        elements.append(Spacer(1, 4))
 
-        # 4. SEÇÃO 2: TABELA DE MANOBRAS E GEOTECNIA (ABNT)
+        # 4. TABELA DE MANOBRAS E GEOTECNIA
         elements.append(Paragraph("<b>2. REGISTRO DE MANOBRAS E DADOS GEOTÉCNICOS</b>", abnt_sec))
-        elements.append(Paragraph("<b>Tabela 1</b> – Dados geotécnicos e litológicos obtidos nas manobras.", abnt_caption))
+        elements.append(Paragraph("<b>Tabela 1</b> – Parâmetros geotécnicos e descrição litológica por manobra.", abnt_caption))
 
         table_manobras_data = [
-            [Paragraph("<b>Mnb</b>", abnt_text_bold), Paragraph("<b>De (m)</b>", abnt_text_bold), Paragraph("<b>Para (m)</b>", abnt_text_bold), 
-             Paragraph("<b>Av. (m)</b>", abnt_text_bold), Paragraph("<b>Rec. (m)</b>", abnt_text_bold), Paragraph("<b>Rec (%)</b>", abnt_text_bold), 
-             Paragraph("<b>RQD (%)</b>", abnt_text_bold), Paragraph("<b>Litologia</b>", abnt_text_bold), Paragraph("<b>Observações</b>", abnt_text_bold)]
+            [Paragraph("<b>Mnb.</b>", abnt_th), Paragraph("<b>De (m)</b>", abnt_th), Paragraph("<b>Para (m)</b>", abnt_th), 
+             Paragraph("<b>Avanço (m)</b>", abnt_th), Paragraph("<b>Rec. (m)</b>", abnt_th), Paragraph("<b>Rec. (%)</b>", abnt_th), 
+             Paragraph("<b>RQD (%)</b>", abnt_th), Paragraph("<b>Litologia</b>", abnt_th), Paragraph("<b>Observações</b>", abnt_th)]
         ]
 
         for _, r in df_manobras.iterrows():
             table_manobras_data.append([
-                Paragraph(str(int(r['Manobra'])), abnt_text), Paragraph(f"{r['De (m)']:.2f}", abnt_text),
-                Paragraph(f"{r['Para (m)']:.2f}", abnt_text), Paragraph(f"{r['Avanço (m)']:.2f}", abnt_text),
-                Paragraph(f"{r['Rec. (m)']:.2f}", abnt_text), Paragraph(f"{r['Rec (%)']:.1f}", abnt_text),
-                Paragraph(f"{r['RQD (%)']:.1f}", abnt_text), Paragraph(str(r['Litologia']), abnt_text),
+                Paragraph(str(int(r['Manobra'])), abnt_td), Paragraph(f"{r['De (m)']:.2f}", abnt_td),
+                Paragraph(f"{r['Para (m)']:.2f}", abnt_td), Paragraph(f"{r['Avanço (m)']:.2f}", abnt_td),
+                Paragraph(f"{r['Rec. (m)']:.2f}", abnt_td), Paragraph(f"{r['Rec (%)']:.1f}", abnt_td),
+                Paragraph(f"{r['RQD (%)']:.1f}", abnt_td), Paragraph(str(r['Litologia']), abnt_text),
                 Paragraph(str(r['Observações'] or '-'), abnt_text)
             ])
 
-        # Linha de Totais/Médias
+        # Linha de Totais com colunas sincronizadas
         table_manobras_data.append([
-            Paragraph("<b>Total / Média</b>", abnt_text_bold), Paragraph("-", abnt_text), Paragraph("-", abnt_text),
-            Paragraph(f"<b>{df_manobras['Avanço (m)'].sum():.2f}</b>", abnt_text_bold),
-            Paragraph(f"<b>{df_manobras['Rec. (m)'].sum():.2f}</b>", abnt_text_bold),
-            Paragraph(f"<b>{df_manobras['Rec (%)'].mean():.1f}%</b>", abnt_text_bold),
-            Paragraph(f"<b>{df_manobras['RQD (%)'].mean():.1f}%</b>", abnt_text_bold),
-            Paragraph("-", abnt_text), Paragraph("-", abnt_text)
+            Paragraph("<b>Total / Média</b>", abnt_th), Paragraph("-", abnt_td), Paragraph("-", abnt_td),
+            Paragraph(f"<b>{df_manobras['Avanço (m)'].sum():.2f}</b>", abnt_th),
+            Paragraph(f"<b>{df_manobras['Rec. (m)'].sum():.2f}</b>", abnt_th),
+            Paragraph(f"<b>{df_manobras['Rec (%)'].mean():.1f}%</b>", abnt_th),
+            Paragraph(f"<b>{df_manobras['RQD (%)'].mean():.1f}%</b>", abnt_th),
+            Paragraph("-", abnt_td), Paragraph("-", abnt_td)
         ])
 
-        t_manobras = Table(table_manobras_data, colWidths=[1.1*cm, 1.4*cm, 1.4*cm, 1.4*cm, 1.4*cm, 1.5*cm, 1.5*cm, 3.1*cm, 3.2*cm])
+        t_manobras = Table(table_manobras_data, colWidths=[1.2*cm, 1.4*cm, 1.4*cm, 1.6*cm, 1.4*cm, 1.5*cm, 1.5*cm, 3.0*cm, 3.0*cm])
         t_manobras.setStyle(TableStyle([
             ('LINEABOVE', (0,0), (-1,0), 1.0, colors.black),
             ('LINEBELOW', (0,0), (-1,0), 1.0, colors.black),
             ('LINEBELOW', (0,-1), (-1,-1), 1.0, colors.black),
             ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-            ('TOPPADDING', (0,0), (-1,-1), 2),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 2),
+            ('TOPPADDING', (0,0), (-1,-1), 2.5),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 2.5),
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#F1F5F9')),
+            ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#F1F5F9')),
         ]))
         
         elements.append(t_manobras)
-        elements.append(Paragraph("Fonte: Dados do projeto (2026).", abnt_fonte))
+        elements.append(Paragraph("Fonte: Dados de campo do projeto (2026).", abnt_fonte))
 
-        # FORCE PAGE BREAK PARA MANTER ORGANIZAÇÃO TÉCNICA
         elements.append(PageBreak())
 
-        # 5. SEÇÃO 3: ESTRATIGRAFIA E PERFIL GEOLÓGICO
-        elements.append(Paragraph("<b>3. PERFIL STRATIGRÁFICO E GRÁFICOS DE RECUPERAÇÃO/RQD</b>", abnt_sec))
-        elements.append(Paragraph("<b>Figura 2</b> – Perfil geológico e variação dos parâmetros geotécnicos.", abnt_caption))
+        # 5. PERFIL STRATIGRÁFICO
+        elements.append(Paragraph("<b>3. PERFIL STRATIGRÁFICO E CURVAS DE RECUPERAÇÃO/RQD</b>", abnt_sec))
+        elements.append(Paragraph("<b>Figura 2</b> – Perfil geológico e variação dos parâmetros geotécnicos em profundidade.", abnt_caption))
 
         img_plt_buf = io.BytesIO()
         fig.savefig(img_plt_buf, format='png', dpi=200, bbox_inches='tight')
@@ -444,13 +594,13 @@ if st.session_state['manobras']:
         elements.append(img_perfil_pdf)
         elements.append(Paragraph("Fonte: Elaborado pelos autores a partir de medições de campo.", abnt_fonte))
 
-        # 6. SEÇÃO 4: REGISTRO FOTOGRÁFICO
-        elements.append(Spacer(1, 10))
+        # 6. REGISTRO FOTOGRÁFICO
+        elements.append(Spacer(1, 6))
         elements.append(Paragraph("<b>4. REGISTRO FOTOGRÁFICO DOS TESTEMUNHOS DE SONDAGEM</b>", abnt_sec))
         
         fotos_list = [m['Foto'] for m in st.session_state['manobras'] if m['Foto'] is not None]
         if fotos_list:
-            elements.append(Paragraph("<b>Figura 3</b> – Amostras e caixas de testemunho registradas.", abnt_caption))
+            elements.append(Paragraph("<b>Figura 3</b> – Registros fotográficos das amostras obtidas.", abnt_caption))
             fotos_grid = []
             row_temp = []
             for idx, img_p in enumerate(fotos_list):
@@ -471,17 +621,17 @@ if st.session_state['manobras']:
             t_fotos.setStyle(TableStyle([
                 ('ALIGN', (0,0), (-1,-1), 'CENTER'),
                 ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-                ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CCCCCC')),
+                ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
                 ('TOPPADDING', (0,0), (-1,-1), 3),
                 ('BOTTOMPADDING', (0,0), (-1,-1), 3),
             ]))
             elements.append(t_fotos)
             elements.append(Paragraph("Fonte: Acervo fotográfico da amostragem (2026).", abnt_fonte))
         else:
-            elements.append(Paragraph("<i>Nenhum registro fotográfico anexado.</i>", abnt_text))
+            elements.append(Paragraph("<i>Nenhum registro fotográfico anexado a este furo.</i>", abnt_text))
 
-        # 7. SEÇÃO 5: ASSINATURA TÉCNICA E RESPONSABILIDADE
-        elements.append(Spacer(1, 15))
+        # 7. ENCERRAMENTO E ASSINATURA TÉCNICA
+        elements.append(Spacer(1, 10))
         
         elements_assinatura = []
         elements_assinatura.append(Paragraph("<b>5. ENCERRAMENTO E ASSINATURA TÉCNICA</b>", abnt_sec))
@@ -491,7 +641,7 @@ if st.session_state['manobras']:
             ass_buf = io.BytesIO()
             img_ass.save(ass_buf, format='PNG')
             ass_buf.seek(0)
-            rl_ass = RLImage(ass_buf, width=5.5*cm, height=1.8*cm)
+            rl_ass = RLImage(ass_buf, width=5.5*cm, height=1.6*cm)
         else:
             rl_ass = Paragraph("<br/><br/>___________________________________", abnt_text)
 
@@ -507,7 +657,7 @@ if st.session_state['manobras']:
         
         elements.append(KeepTogether(elements_assinatura))
 
-        # CONSTRUÇÃO DO PDF USANDO O CANVAS ABNT CUSTOMIZADO
+        # GERAR PDF
         doc.build(elements, canvasmaker=NumberedCanvas)
         
         st.download_button(
