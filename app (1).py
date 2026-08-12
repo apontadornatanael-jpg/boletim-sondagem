@@ -24,6 +24,19 @@ from reportlab.lib.units import cm
 # Componente de Assinatura
 from streamlit_drawable_canvas import st_canvas
 
+import streamlit as st
+
+# CSS para esconder o menu superior, o ícone do GitHub e o rodapé
+ocultar_elementos = """
+    <style>
+    #MainMenu {visibility: hidden;}
+    header {visibility: hidden;}
+    footer {visibility: hidden;}
+    .stAppHeader {display: none;}
+    </style>
+"""
+st.markdown(ocultar_elementos, unsafe_allow_html=True)
+
 # Componente de Comunicação JavaScript (Para suporte Offline / LocalStorage)
 from streamlit_javascript import st_javascript
 
