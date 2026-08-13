@@ -28,7 +28,7 @@ from reportlab.pdfgen import canvas
 # Componente de Assinatura
 from streamlit_drawable_canvas import st_canvas
 
-# Ocultar menu, cabeçalho, rodapé e botões de gerenciamento (Manage App / Hugging Face)
+# Ocultar menu, cabeçalho, rodapé e botões de gerenciamento
 ocultar_elementos = """
     <style>
     /* Oculta o cabeçalho e menus padrão do Streamlit */
@@ -43,7 +43,7 @@ ocultar_elementos = """
     div[class*="manageApp"] {display: none !important;}
     div[class*="StatusWidget"] {display: none !important;}
     
-    /* Oculta badges e botões flutuantes do Hugging Face (coroa / ícone de navegação) */
+    /* Oculta badges e botões flutuantes do Hugging Face */
     iframe[src*="huggingface.co"] {display: none !important;}
     .badge-container, .hf-badge {display: none !important;}
     a[href*="huggingface.co/spaces"] {display: none !important;}
@@ -56,7 +56,7 @@ ocultar_elementos = """
     </style>
 """
 st.markdown(ocultar_elementos, unsafe_allow_html=True)
-st.markdown(ocultar_elementos, unsafe_allow_html=True)
+
 # Estilização do Streamlit
 st.markdown("""
     <style>
@@ -131,34 +131,70 @@ with st.sidebar:
 
 # --- APLICAÇÃO PRINCIPAL ---
 
-def obter_mapa_satelite_esri(lat, lon, zoom=15, width=600, height=250):
+def obter_mapa_satelite_esri_alta_res(lat, lon, zoom=16, width=1200, height=600):
+    """
+    Gera um mapa de imagem composto de alta resolução centralizado exatamente no ponto lat/lon.
+    Monta uma grade 3x3 de tiles para garantir cobertura completa sem distorção.
+    """
     try:
         n = 2.0 ** zoom
-        xtile = int((lon + 180.0) / 360.0 * n)
-        ytile = int((1.0 - math.log(math.tan(math.radians(lat)) + (1.0 / math.cos(math.radians(lat)))) / math.pi) / 2.0 * n)
+        lat_rad = math.radians(lat)
         
-        url = f"https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{zoom}/{ytile}/{xtile}"
+        # Posição fracionária exata do tile
+        x_exact = (lon + 180.0) / 360.0 * n
+        y_exact = (1.0 - math.log(math.tan(lat_rad) + (1.0 / math.cos(lat_rad))) / math.pi) / 2.0 * n
+        
+        x_center_tile = int(math.floor(x_exact))
+        y_center_tile = int(math.floor(y_exact))
+        
+        # Offset em pixels dentro do tile central (256x256)
+        x_offset = int((x_exact - x_center_tile) * 256)
+        y_offset = int((y_exact - y_center_tile) * 256)
+        
+        # Cria uma imagem 3x3 de tiles (768x768 pixels)
+        canvas_img = Image.new('RGBA', (768, 768))
         headers = {'User-Agent': 'Mozilla/5.0'}
-        res = requests.get(url, headers=headers, timeout=5)
         
-        if res.status_code == 200:
-            img_tile = Image.open(io.BytesIO(res.content)).convert("RGBA")
-            img_tile = img_tile.resize((width, height), Image.Resampling.LANCZOS)
-            
-            draw = ImageDraw.Draw(img_tile)
-            cx, cy = width // 2, height // 2
-            
-            draw.ellipse((cx - 10, cy - 25, cx + 10, cy - 5), fill="#E11D48", outline="#FFFFFF", width=2)
-            draw.polygon([(cx - 8, cy - 10), (cx + 8, cy - 10), (cx, cy)], fill="#E11D48")
-            draw.ellipse((cx - 4, cy - 18, cx + 4, cy - 10), fill="#FFFFFF")
-            
-            img_out = io.BytesIO()
-            img_tile.save(img_out, format="PNG")
-            img_out.seek(0)
-            return img_out
-    except Exception:
-        pass
-    return None
+        for dx in range(-1, 2):
+            for dy in range(-1, 2):
+                tx = x_center_tile + dx
+                ty = y_center_tile + dy
+                url = f"https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{zoom}/{ty}/{tx}"
+                res = requests.get(url, headers=headers, timeout=5)
+                if res.status_code == 200:
+                    tile_img = Image.open(io.BytesIO(res.content)).convert("RGBA")
+                    canvas_img.paste(tile_img, ((dx + 1) * 256, (dy + 1) * 256))
+        
+        # O centro real do ponto lat/lon na imagem 768x768 é:
+        px_center_x = 256 + x_offset
+        px_center_y = 256 + y_offset
+        
+        # Corta ao redor do centro para o tamanho desejado
+        crop_w, crop_h = 600, 300
+        left = max(0, px_center_x - crop_w // 2)
+        top = max(0, px_center_y - crop_h // 2)
+        right = left + crop_w
+        bottom = top + crop_h
+        
+        cropped_img = canvas_img.crop((left, top, right, bottom))
+        cropped_img = cropped_img.resize((width, height), Image.Resampling.LANCZOS)
+        
+        # Desenha o marcador no centro do mapa final
+        draw = ImageDraw.Draw(cropped_img)
+        cx, cy = width // 2, height // 2
+        
+        # Marcador Vermelho + Ponto Central
+        r = 14
+        draw.ellipse((cx - r, cy - r*2, cx + r, cy), fill="#E11D48", outline="#FFFFFF", width=3)
+        draw.polygon([(cx - r + 2, cy - r//2), (cx + r - 2, cy - r//2), (cx, cy + r//2)], fill="#E11D48")
+        draw.ellipse((cx - r//2, cy - r*1.5, cx + r//2, cy - r*0.5), fill="#FFFFFF")
+        
+        img_out = io.BytesIO()
+        cropped_img.save(img_out, format="PNG", dpi=(300, 300))
+        img_out.seek(0)
+        return img_out
+    except Exception as e:
+        return None
 
 DADOS_LITOLOGIA = {
     'Solo / Cobertura':        {'cor': '#E5D3B3', 'hatch': '....'},
@@ -207,17 +243,14 @@ with col_furo2:
     diametro = st.selectbox("Diâmetro", ['HQ (63.5mm)', 'NQ (47.6mm)', 'BQ (36.5mm)', 'RC (Circ. Reversa)', 'Outro'])
 
 with st.expander("🌐 Coordenadas GPS e Mapa do Furo", expanded=True):
-    # Valores padrão de contingência
     lat_padrao = -6.515831
     lon_padrao = -36.344525
 
-    # Tenta resgatar a localização salva na sessão ou da URL via GPS
     if 'lat_gps' not in st.session_state:
         st.session_state['lat_gps'] = lat_padrao
     if 'lon_gps' not in st.session_state:
         st.session_state['lon_gps'] = lon_padrao
 
-    # Script nativo para capturar GPS do dispositivo e atualizar a página se obtido
     st.components.v1.html("""
         <script>
         if (navigator.geolocation) {
@@ -235,7 +268,6 @@ with st.expander("🌐 Coordenadas GPS e Mapa do Furo", expanded=True):
         </script>
     """, height=0)
 
-    # Verifica se a URL retornou os parâmetros do GPS automático
     params = st.query_params
     if 'lat' in params and 'lon' in params:
         try:
@@ -250,7 +282,6 @@ with st.expander("🌐 Coordenadas GPS e Mapa do Furo", expanded=True):
         lon_furo = st.number_input("Longitude", value=st.session_state['lon_gps'], format="%.6f")
     with col_geo2:
         datum = st.text_input("Datum", value="SIRGAS 2000")
-        # Mantém compatibilidade interna com as variáveis antigas (para não quebrar Excel e PDF)
         utm_e = lat_furo 
         utm_n = lon_furo
         cota_z = 0.0
@@ -263,7 +294,6 @@ with st.expander("🌐 Coordenadas GPS e Mapa do Furo", expanded=True):
 
     st.markdown("---")
     
-    # Exibição do Mapa Automático centrado na Latitude e Longitude
     m = folium.Map(location=[lat_furo, lon_furo], zoom_start=16, tiles=None)
     folium.TileLayer(
         tiles='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
@@ -271,6 +301,7 @@ with st.expander("🌐 Coordenadas GPS e Mapa do Furo", expanded=True):
     ).add_to(m)
     folium.Marker([lat_furo, lon_furo], popup=f"Furo: {furo_id}", icon=folium.Icon(color='red')).add_to(m)
     st_folium(m, width="100%", height=350)
+
 st.markdown("---")
 
 st.header("2. Registro de Manobras e Fotos do Testemunho")
@@ -320,13 +351,11 @@ with col_h4:
     manutencao_prev = st.text_input("Manutenção Preventiva", placeholder="Ex: 00:15 ou 07:15-07:30")
 
 # --- Litologia, Alteração e Observações ---
-col_l1, col_l2, col_l3 = st.columns(3)
+col_l1, col_l2 = st.columns(2)
 with col_l1:
     litologia = st.selectbox("Litologia", list(DADOS_LITOLOGIA.keys()))
 with col_l2:
     alteracao = st.selectbox("Alteração", ['Solo / Inconsol.', 'Completamente Alterada', 'Muito Alterada', 'Moderadamente Alterada', 'Pouco Alterada', 'Rocha Sã'])
-with col_l3:
-    obs = st.text_input("Observações Geotécnicas / Descrição Serviços", placeholder="Ex: Perfurando, RPT, Fraturado...")
 
 st.subheader("📷 Registro Fotográfico da Amostra / Caixa")
 aba_cam, aba_up = st.tabs(["📸 Tirar Foto Agora", "📁 Carregar da Galeria"])
@@ -372,7 +401,7 @@ if btn_adicionar:
             'Refeição': tempo_refeicao,
             'Manutenção Preventiva': manutencao_prev,
             'Litologia': litologia, 'Alteração': alteracao, 
-            'Observações': obs, 'Foto': img_capturada
+            'Foto': img_capturada
         })
         st.success("✅ Manobra registrada!")
         st.rerun()
@@ -382,18 +411,16 @@ if btn_remover and st.session_state['manobras']:
     st.warning("🗑️ Última manobra removida.")
     st.rerun()
 
-if btn_remover and st.session_state['manobras']:
-    st.session_state['manobras'].pop()
-    st.warning("🗑️ Última manobra removida.")
-    st.rerun()
-if btn_remover and st.session_state['manobras']:
-    st.session_state['manobras'].pop()
-    st.warning("🗑️ Última manobra removida.")
-    st.rerun()
-
 st.markdown("---")
 
-st.header("3. Perfil Litológico e Relatórios")
+st.header("3. Perfil Litológico, Observações Gerais e Relatórios")
+
+# --- NOVO BLOCO DE OBSERVAÇÕES NO FINAL DO BOLETIM ---
+obs_gerais_furo = st.text_area(
+    "📝 Observações Técnicas Gerais / Notas de Campo do Furo", 
+    placeholder="Digite observações importantes sobre o furo, trocas de ferramenta, perdas de água, fraturamento especial, etc...",
+    height=100
+)
 
 if st.session_state['manobras']:
     df_manobras = pd.DataFrame(st.session_state['manobras'])
@@ -432,7 +459,6 @@ if st.session_state['manobras']:
     ax_rec.set_title("Recuperação (%)", fontsize=10, fontweight='bold')
     plt.tight_layout()
 
-    # --- AJUSTE 1: Exibir e liberar memória do gráfico imediatamente ---
     st.pyplot(fig)
     plt.close(fig)
 
@@ -441,7 +467,6 @@ if st.session_state['manobras']:
     st.markdown("### ✍️ Assinatura Digital do Responsável")
     canvas_result = st_canvas(fill_color="rgba(255, 255, 255, 0)", stroke_width=2, stroke_color="#000000", background_color="#F8FAFC", height=120, width=400, drawing_mode="freedraw", key="canvas_assinatura")
 
-    # --- AJUSTE 2: Checagem de segurança se a assinatura realmente foi feita ---
     tem_assinatura = (
         canvas_result.image_data is not None 
         and canvas_result.image_data.any()
@@ -516,15 +541,15 @@ if st.session_state['manobras']:
         ws['A4'].alignment = align_left
 
         dados_header = [
-            [("Projeto:", projeto), ("Coordenador:", coordenador), ("UTM (E):", utm_e), ("Latitude:", lat_furo)],
-            [("ID Furo:", furo_id), ("Supervisor:", supervisor), ("UTM (N):", utm_n), ("Longitude:", lon_furo)],
-            [("Diâmetro:", diametro), ("Geólogo Resp.:", geologo), ("Cota Z (m):", cota_z), ("Início:", str(data_inicio))],
-            [("Inclin./Az.:", f"{inclinacao}° / {azimute}°"), ("Sondador:", sondador), ("Datum:", datum), ("Término:", str(data_fim))]
+            [("Projeto:", projeto), ("Coordenador:", coordenador), ("Latitude:", lat_furo)],
+            [("ID Furo:", furo_id), ("Supervisor:", supervisor), ("Longitude:", lon_furo)],
+            [("Diâmetro:", diametro), ("Geólogo Resp.:", geologo), ("Início:", str(data_inicio))],
+            [("Inclin./Az.:", f"{inclinacao}° / {azimute}°"), ("Sondador:", sondador), ("Datum:", datum)]
         ]
 
         curr_row = 5
         for row in dados_header:
-            col_pairs = [(1,2,3), (4,5,6), (7,8,9), (10,11,12)]
+            col_pairs = [(1,2,3), (4,5,6), (7,8,9)]
             for idx, (lbl, val) in enumerate(row):
                 c_lbl, c_val_start, c_val_end = col_pairs[idx]
                 ws.cell(row=curr_row, column=c_lbl, value=lbl).font = Font(name='Calibri', size=10, bold=True)
@@ -602,15 +627,26 @@ if st.session_state['manobras']:
                 cell.value = "-"
                 cell.alignment = align_center
 
-        curr_row += 3
+        # --- OBSERVAÇÕES GERAIS NO EXCEL ---
+        curr_row += 2
+        ws.merge_cells(f'A{curr_row}:L{curr_row}')
+        ws[f'A{curr_row}'] = "3. OBSERVAÇÕES TÉCNICAS E NOTAS DE CAMPO"
+        ws[f'A{curr_row}'].font = font_sec
+        ws[f'A{curr_row}'].fill = fill_sec
+
+        curr_row += 1
+        ws.merge_cells(f'A{curr_row}:L{curr_row+2}')
+        ws[f'A{curr_row}'] = obs_gerais_furo if obs_gerais_furo else "Nenhuma observação complementar."
+        ws[f'A{curr_row}'].font = font_body
+        ws[f'A{curr_row}'].alignment = Alignment(horizontal='left', vertical='top', wrap_text=True)
+
+        curr_row += 4
         ws.merge_cells(f'A{curr_row}:E{curr_row}')
-        ws[f'A{curr_row}'] = "3. VALIDAÇÃO E ASSINATURA TÉCNICA"
+        ws[f'A{curr_row}'] = "4. VALIDAÇÃO E ASSINATURA TÉCNICA"
         ws[f'A{curr_row}'].font = font_sec
         ws[f'A{curr_row}'].fill = fill_sec
 
         curr_row += 2
-        
-        # --- AJUSTE 3: Inserção segura da assinatura no Excel ---
         if tem_assinatura:
             img_ass_pil = Image.fromarray(canvas_result.image_data.astype('uint8'))
             ass_excel_buf = io.BytesIO()
@@ -687,8 +723,6 @@ if st.session_state['manobras']:
         abnt_text_bold = ParagraphStyle('ABNTTextBold', parent=styles['Normal'], fontName='Times-Bold', fontSize=8.5, leading=11)
         abnt_th = ParagraphStyle('ABNTTH', parent=styles['Normal'], fontName='Times-Bold', fontSize=8, leading=9, alignment=1)
         abnt_td = ParagraphStyle('ABNTTD', parent=styles['Normal'], fontName='Times-Roman', fontSize=8, leading=10, alignment=1)
-        abnt_caption = ParagraphStyle('ABNTCaption', parent=styles['Italic'], fontName='Times-Italic', fontSize=8.5, leading=10, alignment=0, spaceAfter=4)
-        abnt_fonte = ParagraphStyle('ABNTFonte', parent=styles['Italic'], fontName='Times-Roman', fontSize=7.5, leading=9, alignment=0, spaceBefore=3, spaceAfter=8)
 
         # Header
         if img_logo_pil:
@@ -707,163 +741,96 @@ if st.session_state['manobras']:
 
         # Dados do Furo
         elements.append(Paragraph("<b>1. DADOS DE GESTÃO E LOCALIZAÇÃO DO FURO</b>", abnt_sec))
-        prof_total_val = float(df_manobras['Para (m)'].max())
         dados_furo_table = [
             [Paragraph("<b>Projeto:</b>", abnt_text), Paragraph(projeto, abnt_text), Paragraph("<b>Coordenador:</b>", abnt_text), Paragraph(coordenador, abnt_text)],
             [Paragraph("<b>ID do Furo:</b>", abnt_text), Paragraph(furo_id, abnt_text_bold), Paragraph("<b>Supervisor:</b>", abnt_text), Paragraph(supervisor, abnt_text)],
             [Paragraph("<b>Diâmetro:</b>", abnt_text), Paragraph(diametro, abnt_text), Paragraph("<b>Geólogo Resp.:</b>", abnt_text), Paragraph(geologo, abnt_text)],
             [Paragraph("<b>Início / Fim:</b>", abnt_text), Paragraph(f"{data_inicio} a {data_fim}", abnt_text), Paragraph("<b>Sondador:</b>", abnt_text), Paragraph(sondador, abnt_text)],
-            [Paragraph("<b>UTM (E / N):</b>", abnt_text), Paragraph(f"{utm_e:.2f} / {utm_n:.2f}", abnt_text), Paragraph("<b>Cota Z / Datum:</b>", abnt_text), Paragraph(f"{cota_z:.2f} m ({datum})", abnt_text)],
-            [Paragraph("<b>Inclin. / Azimute:</b>", abnt_text), Paragraph(f"{inclinacao}° / {azimute}°", abnt_text), Paragraph("<b>Prof. Total:</b>", abnt_text), Paragraph(f"{prof_total_val:.2f} m", abnt_text_bold)],
+            [Paragraph("<b>Incl./Azimute:</b>", abnt_text), Paragraph(f"{inclinacao}° / {azimute}°", abnt_text), Paragraph("<b>Datum:</b>", abnt_text), Paragraph(datum, abnt_text)],
+            [Paragraph("<b>Latitude:</b>", abnt_text), Paragraph(f"{lat_furo:.6f}", abnt_text), Paragraph("<b>Longitude:</b>", abnt_text), Paragraph(f"{lon_furo:.6f}", abnt_text)]
         ]
-        
-        t_furo = Table(dados_furo_table, colWidths=[3.0*cm, 5.0*cm, 3.0*cm, 5.0*cm])
+        t_furo = Table(dados_furo_table, colWidths=[3.2*cm, 4.8*cm, 3.2*cm, 4.8*cm])
         t_furo.setStyle(TableStyle([
-            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#475569')),
+            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
+            ('BACKGROUND', (0,0), (0,-1), colors.HexColor('#F8FAFC')),
+            ('BACKGROUND', (2,0), (2,-1), colors.HexColor('#F8FAFC')),
             ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-            ('TOPPADDING', (0,0), (-1,-1), 2.5),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 2.5),
-            ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#F8FAFC'))
         ]))
         elements.append(t_furo)
-        elements.append(Spacer(1, 6))
+        elements.append(Spacer(1, 10))
 
-        # Satélite
-        elements.append(Paragraph("<b>1.1 Localização Geográfica do Furo</b>", abnt_sec))
-        img_mapa_esri = obter_mapa_satelite_esri(lat_furo, lon_furo)
-        
-        if img_mapa_esri:
-            elements.append(Paragraph(f"<b>Figura 1</b> – Imagem de satélite com localização do Furo {furo_id}.", abnt_caption))
-            elements.append(RLImage(img_mapa_esri, width=16.0*cm, height=5.5*cm))
-            elements.append(Paragraph("Fonte: Esri World Imagery (2026).", abnt_fonte))
-        else:
-            elements.append(Paragraph("<i>Não foi possível carregar a imagem de satélite no PDF. Verificar conexão com a internet.</i>", abnt_text))
-
-        elements.append(Spacer(1, 4))
+        # INSERÇÃO DO MAPA DE ALTA RESOLUÇÃO NO PDF
+        mapa_sat_stream = obter_mapa_satelite_esri_alta_res(lat_furo, lon_furo, zoom=16, width=1200, height=600)
+        if mapa_sat_stream:
+            elements.append(Paragraph("<b>LOCALIZAÇÃO CARTOGRÁFICA / IMAGEM DE SATÉLITE</b>", abnt_sec))
+            rl_mapa = RLImage(mapa_sat_stream, width=16.0*cm, height=8.0*cm)
+            elements.append(rl_mapa)
+            elements.append(Spacer(1, 10))
 
         # Tabela de Manobras
-        elements.append(Paragraph("<b>2. REGISTRO DE MANOBRAS E DADOS GEOTÉCNICOS</b>", abnt_sec))
-        elements.append(Paragraph("<b>Tabela 1</b> – Parâmetros geotécnicos e descrição litológica por manobra.", abnt_caption))
-
-        table_manobras_data = [
-            [Paragraph("<b>Mnb.</b>", abnt_th), Paragraph("<b>De (m)</b>", abnt_th), Paragraph("<b>Para (m)</b>", abnt_th), 
-             Paragraph("<b>Avanço (m)</b>", abnt_th), Paragraph("<b>Rec. (m)</b>", abnt_th), Paragraph("<b>Rec. (%)</b>", abnt_th), 
-             Paragraph("<b>RQD (%)</b>", abnt_th), Paragraph("<b>Litologia</b>", abnt_th), Paragraph("<b>Observações</b>", abnt_th)]
-        ]
-
-        for _, r in df_manobras.iterrows():
-            table_manobras_data.append([
-                Paragraph(str(int(r['Manobra'])), abnt_td), Paragraph(f"{r['De (m)']:.2f}", abnt_td),
-                Paragraph(f"{r['Para (m)']:.2f}", abnt_td), Paragraph(f"{r['Avanço (m)']:.2f}", abnt_td),
-                Paragraph(f"{r['Rec. (m)']:.2f}", abnt_td), Paragraph(f"{r['Rec (%)']:.1f}", abnt_td),
-                Paragraph(f"{r['RQD (%)']:.1f}", abnt_td), Paragraph(str(r['Litologia']), abnt_text),
-                Paragraph(str(r['Observações'] or '-'), abnt_text)
+        elements.append(Paragraph("<b>2. TELA DE MANOBRAS E REGISTROS DE CAMPO</b>", abnt_sec))
+        
+        headers_pdf = [Paragraph(f"<b>{c}</b>", abnt_th) for c in ['Man.', 'De-Para', 'Av.(m)', 'Rec.(m)', 'Rec%', 'RQD%', 'Peça', 'Caixa', 'Horário', 'Litologia']]
+        rows_pdf = [headers_pdf]
+        
+        for idx, r in df_manobras.iterrows():
+            rows_pdf.append([
+                Paragraph(str(r['Manobra']), abnt_td),
+                Paragraph(f"{r['De (m)']:.1f}-{r['Para (m)']:.1f}", abnt_td),
+                Paragraph(f"{r['Avanço (m)']:.2f}", abnt_td),
+                Paragraph(f"{r['Rec. (m)']:.2f}", abnt_td),
+                Paragraph(f"{r['Rec (%)']:.0f}%", abnt_td),
+                Paragraph(f"{r['RQD (%)']:.0f}%", abnt_td),
+                Paragraph(str(r['Diâm. Peça']), abnt_td),
+                Paragraph(str(r['Nº Caixa']), abnt_td),
+                Paragraph(f"{r['Hora Inicial']}-{r['Hora Final']}", abnt_td),
+                Paragraph(str(r['Litologia']), abnt_td),
             ])
 
-        table_manobras_data.append([
-            Paragraph("<b>Total / Média</b>", abnt_th), Paragraph("-", abnt_td), Paragraph("-", abnt_td),
-            Paragraph(f"<b>{df_manobras['Avanço (m)'].sum():.2f}</b>", abnt_th),
-            Paragraph(f"<b>{df_manobras['Rec. (m)'].sum():.2f}</b>", abnt_th),
-            Paragraph(f"<b>{df_manobras['Rec (%)'].mean():.1f}%</b>", abnt_th),
-            Paragraph(f"<b>{df_manobras['RQD (%)'].mean():.1f}%</b>", abnt_th),
-            Paragraph("-", abnt_td), Paragraph("-", abnt_td)
-        ])
-
-        t_manobras = Table(table_manobras_data, colWidths=[1.2*cm, 1.4*cm, 1.4*cm, 1.6*cm, 1.4*cm, 1.5*cm, 1.5*cm, 3.0*cm, 3.0*cm])
+        t_manobras = Table(rows_pdf, colWidths=[1.1*cm, 2.0*cm, 1.4*cm, 1.4*cm, 1.3*cm, 1.3*cm, 1.4*cm, 1.3*cm, 2.2*cm, 2.6*cm])
         t_manobras.setStyle(TableStyle([
-            ('LINEABOVE', (0,0), (-1,0), 1.0, colors.black),
-            ('LINEBELOW', (0,0), (-1,0), 1.0, colors.black),
-            ('LINEBELOW', (0,-1), (-1,-1), 1.0, colors.black),
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#0284C7')),
+            ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
             ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-            ('TOPPADDING', (0,0), (-1,-1), 2.5),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 2.5),
-            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#F1F5F9')),
-            ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#F1F5F9')),
+            ('ALIGN', (0,0), (-1,-1), 'CENTER'),
         ]))
-        
         elements.append(t_manobras)
-        elements.append(Paragraph("Fonte: Dados de campo do projeto (2026).", abnt_fonte))
+        elements.append(Spacer(1, 12))
 
-        elements.append(PageBreak())
+        # BLOCO NOVO: OBSERVAÇÕES TÉCNICAS E NOTAS DE CAMPO
+        elements.append(Paragraph("<b>3. OBSERVAÇÕES TÉCNICAS E NOTAS DE CAMPO</b>", abnt_sec))
+        texto_obs = obs_gerais_furo if obs_gerais_furo.strip() else "Sem observações adicionais registradas para este furo."
+        t_obs = Table([[Paragraph(texto_obs, abnt_text)]], colWidths=[16.0*cm])
+        t_obs.setStyle(TableStyle([
+            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
+            ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#F8FAFC')),
+            ('TOPPADDING', (0,0), (-1,-1), 8),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 8),
+            ('LEFTPADDING', (0,0), (-1,-1), 8),
+            ('RIGHTPADDING', (0,0), (-1,-1), 8),
+        ]))
+        elements.append(t_obs)
+        elements.append(Spacer(1, 15))
 
-        # Perfil
-        elements.append(Paragraph("<b>3. PERFIL STRATIGRÁFICO E CURVAS DE RECUPERAÇÃO/RQD</b>", abnt_sec))
-        elements.append(Paragraph("<b>Figura 2</b> – Perfil geológico e variação dos parâmetros geotécnicos em profundidade.", abnt_caption))
-
-        img_plt_buf = io.BytesIO()
-        fig.savefig(img_plt_buf, format='png', dpi=200, bbox_inches='tight')
-        img_plt_buf.seek(0)
-        
-        img_perfil_pdf = RLImage(img_plt_buf, width=16.0*cm, height=7.5*cm)
-        elements.append(img_perfil_pdf)
-        elements.append(Paragraph("Fonte: Elaborado pelos autores a partir de medições de campo.", abnt_fonte))
-
-        # Fotos
-        elements.append(Spacer(1, 6))
-        elements.append(Paragraph("<b>4. REGISTRO FOTOGRÁFICO DOS TESTEMUNHOS DE SONDAGEM</b>", abnt_sec))
-        
-        fotos_list = [m['Foto'] for m in st.session_state['manobras'] if m['Foto'] is not None]
-        if fotos_list:
-            elements.append(Paragraph("<b>Figura 3</b> – Registros fotográficos das amostras obtidas.", abnt_caption))
-            fotos_grid = []
-            row_temp = []
-            for idx, img_p in enumerate(fotos_list):
-                img_b = io.BytesIO()
-                img_copy = img_p.copy()
-                img_copy.thumbnail((400, 300))
-                img_copy.save(img_b, format='PNG')
-                img_b.seek(0)
-                
-                rl_img = RLImage(img_b, width=3.8*cm, height=2.8*cm)
-                row_temp.append(rl_img)
-                if len(row_temp) == 4:
-                    fotos_grid.append(row_temp)
-                    row_temp = []
-            if row_temp:
-                while len(row_temp) < 4:
-                    row_temp.append(Paragraph("", abnt_text))
-                fotos_grid.append(row_temp)
-
-            t_fotos = Table(fotos_grid, colWidths=[4.0*cm, 4.0*cm, 4.0*cm, 4.0*cm])
-            t_fotos.setStyle(TableStyle([
-                ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-                ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-                ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
-                ('TOPPADDING', (0,0), (-1,-1), 3),
-                ('BOTTOMPADDING', (0,0), (-1,-1), 3),
-            ]))
-            elements.append(t_fotos)
-            elements.append(Paragraph("Fonte: Acervo fotográfico da amostragem (2026).", abnt_fonte))
-        else:
-            elements.append(Paragraph("<i>Nenhum registro fotográfico anexado a este furo.</i>", abnt_text))
-
-        # Assinatura PDF
-        elements.append(Spacer(1, 10))
-        elements_assinatura = [Paragraph("<b>5. ENCERRAMENTO E ASSINATURA TÉCNICA</b>", abnt_sec)]
-        
-        # --- AJUSTE 4: Inserção segura da assinatura no PDF ---
+        # Assinatura
+        elements.append(Paragraph("<b>4. VALIDAÇÃO TÉCNICA</b>", abnt_sec))
         if tem_assinatura:
-            img_ass = Image.fromarray(canvas_result.image_data.astype('uint8'))
-            ass_buf = io.BytesIO()
-            img_ass.save(ass_buf, format='PNG')
-            ass_buf.seek(0)
-            rl_ass = RLImage(ass_buf, width=5.5*cm, height=1.6*cm)
-        else:
-            rl_ass = Paragraph("<br/><br/>___________________________________", abnt_text)
+            img_ass_pil = Image.fromarray(canvas_result.image_data.astype('uint8'))
+            ass_pdf_buf = io.BytesIO()
+            img_ass_pil.save(ass_pdf_buf, format='PNG')
+            ass_pdf_buf.seek(0)
+            rl_ass = RLImage(ass_pdf_buf, width=5.0*cm, height=1.8*cm)
+            elements.append(rl_ass)
 
-        sig_table_data = [[rl_ass, Paragraph(f"<br/><br/>___________________________________<br/><b>{geologo}</b><br/>Geólogo Responsável", abnt_text)]]
-        t_sig = Table(sig_table_data, colWidths=[8.0*cm, 8.0*cm])
-        t_sig.setStyle(TableStyle([('ALIGN', (0,0), (-1,-1), 'CENTER'), ('VALIGN', (0,0), (-1,-1), 'MIDDLE')]))
-        elements_assinatura.append(t_sig)
-        elements.append(KeepTogether(elements_assinatura))
+        elements.append(Paragraph(f"__________________________________________<br/><b>{geologo}</b><br/>Geólogo Responsável", abnt_text))
 
-        # Gerar PDF
         doc.build(elements, canvasmaker=NumberedCanvas)
         
         st.download_button(
-            label="📄 Baixar Boletim ABNT (.pdf)",
+            label="📄 Baixar Boletim em PDF (.pdf)",
             data=pdf_buf.getvalue(),
-            file_name=f"Boletim_ABNT_{furo_id}.pdf",
+            file_name=f"Boletim_{furo_id}.pdf",
             mime="application/pdf",
             use_container_width=True
         )
