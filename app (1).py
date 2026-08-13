@@ -207,37 +207,50 @@ with col_furo2:
     diametro = st.selectbox("Diâmetro", ['HQ (63.5mm)', 'NQ (47.6mm)', 'BQ (36.5mm)', 'RC (Circ. Reversa)', 'Outro'])
 
 with st.expander("🌐 Coordenadas GPS e Mapa do Furo", expanded=True):
-    # Captura de Localização Automática (GPS do Dispositivo / Timestamp)
-    # Tenta obter a posição real do GPS/Navegador
-    loc_auto = st_javascript("""
-        new Promise((resolve) => {
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    (pos) => resolve({lat: pos.coords.latitude, lon: pos.coords.longitude}),
-                    (err) => resolve(null),
-                    {enableHighAccuracy: true, timeout: 5000}
-                );
-            } else {
-                resolve(null);
-            }
-        });
-    """)
-
-    # Valores padrão iniciais caso a geolocalização falhe ou esteja desativada
+    # Valores padrão de contingência
     lat_padrao = -6.515831
     lon_padrao = -36.344525
 
-    if loc_auto and isinstance(loc_auto, dict) and 'lat' in loc_auto and 'lon' in loc_auto:
-        lat_padrao = float(loc_auto['lat'])
-        lon_padrao = float(loc_auto['lon'])
+    # Tenta resgatar a localização salva na sessão ou da URL via GPS
+    if 'lat_gps' not in st.session_state:
+        st.session_state['lat_gps'] = lat_padrao
+    if 'lon_gps' not in st.session_state:
+        st.session_state['lon_gps'] = lon_padrao
+
+    # Script nativo para capturar GPS do dispositivo e atualizar a página se obtido
+    st.components.v1.html("""
+        <script>
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(function(position) {
+                const lat = position.coords.latitude;
+                const lon = position.coords.longitude;
+                const urlParams = new URLSearchParams(window.parent.location.search);
+                if (urlParams.get('lat') !== lat.toString() || urlParams.get('lon') !== lon.toString()) {
+                    urlParams.set('lat', lat);
+                    urlParams.set('lon', lon);
+                    window.parent.location.search = urlParams.toString();
+                }
+            });
+        }
+        </script>
+    """, height=0)
+
+    # Verifica se a URL retornou os parâmetros do GPS automático
+    params = st.query_params
+    if 'lat' in params and 'lon' in params:
+        try:
+            st.session_state['lat_gps'] = float(params['lat'])
+            st.session_state['lon_gps'] = float(params['lon'])
+        except ValueError:
+            pass
 
     col_geo1, col_geo2, col_geo3, col_geo4 = st.columns(4)
     with col_geo1:
-        lat_furo = st.number_input("Latitude", value=lat_padrao, format="%.6f")
-        lon_furo = st.number_input("Longitude", value=lon_padrao, format="%.6f")
+        lat_furo = st.number_input("Latitude", value=st.session_state['lat_gps'], format="%.6f")
+        lon_furo = st.number_input("Longitude", value=st.session_state['lon_gps'], format="%.6f")
     with col_geo2:
         datum = st.text_input("Datum", value="SIRGAS 2000")
-        # Mantém compatibilidade com o restante do código que usa as variáveis utm_e, utm_n e cota_z
+        # Mantém compatibilidade interna com as variáveis antigas (para não quebrar Excel e PDF)
         utm_e = lat_furo 
         utm_n = lon_furo
         cota_z = 0.0
@@ -250,7 +263,7 @@ with st.expander("🌐 Coordenadas GPS e Mapa do Furo", expanded=True):
 
     st.markdown("---")
     
-    # Exibição do Mapa Automático centrado na Latitude e Longitude definidas acima
+    # Exibição do Mapa Automático centrado na Latitude e Longitude
     m = folium.Map(location=[lat_furo, lon_furo], zoom_start=16, tiles=None)
     folium.TileLayer(
         tiles='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
