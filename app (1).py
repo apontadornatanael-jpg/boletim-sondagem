@@ -161,14 +161,20 @@ if btn_submeter:
     ws[f"A{curr_row}"].alignment = align_left
     curr_row += 1
 
-    # Inserção de Horários
-    ws.cell(row=curr_row, column=1, value="Hora Início:").font = font_header
-    ws.cell(row=curr_row, column=2, value=hora_inicio.strftime("%H:%M")).font = font_dados
-    ws.cell(row=curr_row, column=2).alignment = align_center
+    # Inserção de Horários como valores datetime.time nativos
+    c_inc = ws.cell(row=curr_row, column=1, value="Hora Início:")
+    c_inc.font = font_header
+    c_val_inc = ws.cell(row=curr_row, column=2, value=hora_inicio)
+    c_val_inc.font = font_dados
+    c_val_inc.alignment = align_center
+    c_val_inc.number_format = 'hh:mm'
 
-    ws.cell(row=curr_row, column=4, value="Hora Término:").font = font_header
-    ws.cell(row=curr_row, column=5, value=hora_fim.strftime("%H:%M")).font = font_dados
-    ws.cell(row=curr_row, column=5).alignment = align_center
+    c_fim = ws.cell(row=curr_row, column=4, value="Hora Término:")
+    c_fim.font = font_header
+    c_val_fim = ws.cell(row=curr_row, column=5, value=hora_fim)
+    c_val_fim.font = font_dados
+    c_val_fim.alignment = align_center
+    c_val_fim.number_format = 'hh:mm'
     curr_row += 1
 
     ws.cell(row=curr_row, column=1, value="Intervalo (min):").font = font_header
@@ -179,13 +185,12 @@ if btn_submeter:
     ws.cell(row=curr_row, column=4, value="Total Horas Trabalhadas:").font = font_header
     
     # Coordenadas das células no Excel para a fórmula
-    # Hora inicio está em B(curr_row-1), Hora fim está em E(curr_row-1), Intervalo em B(curr_row)
     cell_inc = f"B{curr_row-1}"
     cell_fim = f"E{curr_row-1}"
     cell_int = f"B{curr_row}"
     cell_res = f"E{curr_row}"
 
-    # Fórmula Excel com suporte à virada de dia
+    # Fórmula Excel nativa automatizada com suporte à virada de dia
     formula_horas = f'=IF({cell_fim}<{cell_inc}, ({cell_fim}+1)-{cell_inc}-({cell_int}/1440), {cell_fim}-{cell_inc}-({cell_int}/1440))'
     
     ws[cell_res] = formula_horas
@@ -251,13 +256,13 @@ if btn_submeter:
     ws[f"B{curr_row}"].alignment = align_center
 
     # AJUSTE AUTOMÁTICO DE LARGURA DE COLUNAS
+    merged_coords = [r.coord for r in ws.merged_cells.ranges]
     for col in ws.columns:
         max_len = 0
         col_letter = get_column_letter(col[0].column)
         for cell in col:
             if cell.value:
-                # Evita que células mescladas estraguem a largura da coluna
-                if cell.coordinate in ws.merged_cells:
+                if any(cell.coordinate in rng for rng in merged_coords):
                     continue
                 max_len = max(max_len, len(str(cell.value)))
         ws.column_dimensions[col_letter].width = max(max_len + 5, 14)
