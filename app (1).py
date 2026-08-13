@@ -7,9 +7,7 @@ from datetime import datetime, timedelta
 import io
 import base64
 
-# ==========================================
-# CONFIGURAÇÃO DA PÁGINA
-# ==========================================
+# Configuração da página
 st.set_page_config(
     page_title="Boletim Diário de Campo - Sondagem / Obra",
     page_icon="📊",
@@ -17,11 +15,9 @@ st.set_page_config(
 )
 
 st.title("📊 Boletim Diário de Campo")
-st.markdown("Preencha os dados operacionais abaixo para gerar a planilha automatizada em conformidade com os padrões técnicos.")
+st.markdown("Preencha os dados operacionais abaixo para gerar o relatório em conformidade com a ABNT.")
 
-# ==========================================
-# FORMULÁRIO DE ENTRADA DE DADOS
-# ==========================================
+# Formulário de entrada de dados
 with st.form("form_boletim"):
     st.subheader("📌 1. Identificação do Projeto e Sondagem")
     col1, col2, col3 = st.columns(3)
@@ -83,42 +79,36 @@ with st.form("form_boletim"):
     st.subheader("📝 4. Observações Técnicas")
     observacoes = st.text_area("Ocorrências, paradas ou observações de campo:", value="Execução realizada sem interrupções técnicas. Nível d'água encontrado a -2,50m.")
 
-    btn_submeter = st.form_submit_button("⚙️ Gerar Planilha ABNT Automática", use_container_width=True)
+    btn_submeter = st.form_submit_button("⚙️ Gerar Relatório ABNT Automático", use_container_width=True)
 
-# ==========================================
-# PROCESSAMENTO E GERAÇÃO DA PLANILHA EXCEL
-# ==========================================
+# Processamento
 if btn_submeter:
+    # ----------------------------------------------------
+    # GERAÇÃO DA PLANILHA EXCEL
+    # ----------------------------------------------------
     wb = Workbook()
-    
-    # --------------------------------------
-    # ABA 1: BOLETIM TÉCNICO (ABNT)
-    # --------------------------------------
     ws = wb.active
     ws.title = "Boletim Diário"
-    ws.views.sheetView[0].showGridLines = True
 
-    # DEFINIÇÃO DE ESTILOS DE ACORDO COM ABNT
+    # Estilos
     font_titulo = Font(name="Arial", size=14, bold=True, color="1E293B")
     font_subtitulo = Font(name="Arial", size=10, italic=True, color="475569")
     font_secao = Font(name="Arial", size=11, bold=True, color="FFFFFF")
     font_header = Font(name="Arial", size=10, bold=True, color="0F172A")
     font_dados = Font(name="Arial", size=10, bold=False, color="000000")
-    font_bold = Font(name="Arial", size=10, bold=True, color="000000")
-
-    fill_secao = PatternFill(start_color="1E3A8A", end_color="1E3A8A", fill_type="solid") # Azul Escuro Corporativo
+    
+    fill_secao = PatternFill(start_color="1E3A8A", end_color="1E3A8A", fill_type="solid")
     fill_header_tabela = PatternFill(start_color="E2E8F0", end_color="E2E8F0", fill_type="solid")
-    fill_destaque = PatternFill(start_color="FEF3C7", end_color="FEF3C7", fill_type="solid") # Amarelo Suave
+    fill_destaque = PatternFill(start_color="FEF3C7", end_color="FEF3C7", fill_type="solid")
 
     thin_border_side = Side(border_style="thin", color="CBD5E1")
     border_celula = Border(left=thin_border_side, right=thin_border_side, top=thin_border_side, bottom=thin_border_side)
-    border_top_thick = Border(top=Side(border_style="medium", color="0F172A"))
 
     align_center = Alignment(horizontal="center", vertical="center")
     align_left = Alignment(horizontal="left", vertical="center")
     align_right = Alignment(horizontal="right", vertical="center")
 
-    # CABEÇALHO ABNT
+    # Cabeçalho
     ws.merge_cells("A1:E1")
     ws["A1"] = "RELATÓRIO DIÁRIO DE CAMPO - BOLETIM TÉCNICO"
     ws["A1"].font = font_titulo
@@ -129,10 +119,9 @@ if btn_submeter:
     ws["A2"].font = font_subtitulo
     ws["A2"].alignment = align_center
 
-    # BLANCO SEPARADOR
     ws.row_dimensions[3].height = 10
 
-    # SEÇÃO 1: IDENTIFICAÇÃO DO PROJETO
+    # Seção 1
     ws.merge_cells("A4:E4")
     ws["A4"] = "1. IDENTIFICAÇÃO E DADOS GERAIS"
     ws["A4"].font = font_secao
@@ -153,7 +142,7 @@ if btn_submeter:
         ws.cell(row=curr_row, column=5, value=row_data[3]).font = font_dados
         curr_row += 1
 
-    # SEÇÃO 2: HORÁRIO DE TRABALHO E CÁLCULO DE HORAS
+    # Seção 2: Horários e Fórmula Automática de Horas Efetivas no Excel
     ws.merge_cells(f"A{curr_row}:E{curr_row}")
     ws[f"A{curr_row}"] = "2. JORNADA DE TRABALHO E HORAS EFETIVAS"
     ws[f"A{curr_row}"].font = font_secao
@@ -161,16 +150,14 @@ if btn_submeter:
     ws[f"A{curr_row}"].alignment = align_left
     curr_row += 1
 
-    # Inserção de Horários como valores datetime.time nativos
-    c_inc = ws.cell(row=curr_row, column=1, value="Hora Início:")
-    c_inc.font = font_header
+    # Horários inseridos como tipo hora real para cálculo no Excel
+    ws.cell(row=curr_row, column=1, value="Hora Início:").font = font_header
     c_val_inc = ws.cell(row=curr_row, column=2, value=hora_inicio)
     c_val_inc.font = font_dados
     c_val_inc.alignment = align_center
     c_val_inc.number_format = 'hh:mm'
 
-    c_fim = ws.cell(row=curr_row, column=4, value="Hora Término:")
-    c_fim.font = font_header
+    ws.cell(row=curr_row, column=4, value="Hora Término:").font = font_header
     c_val_fim = ws.cell(row=curr_row, column=5, value=hora_fim)
     c_val_fim.font = font_dados
     c_val_fim.alignment = align_center
@@ -181,26 +168,25 @@ if btn_submeter:
     ws.cell(row=curr_row, column=2, value=intervalo_min).font = font_dados
     ws.cell(row=curr_row, column=2).alignment = align_center
 
-    # FÓRMULA AUTOMÁTICA DO EXCEL PARA HORAS TRABALHADAS
     ws.cell(row=curr_row, column=4, value="Total Horas Trabalhadas:").font = font_header
     
-    # Coordenadas das células no Excel para a fórmula
+    # Coordenadas das células para a fórmula
     cell_inc = f"B{curr_row-1}"
     cell_fim = f"E{curr_row-1}"
     cell_int = f"B{curr_row}"
     cell_res = f"E{curr_row}"
 
-    # Fórmula Excel nativa automatizada com suporte à virada de dia
+    # Fórmula do Excel para cálculo automático
     formula_horas = f'=IF({cell_fim}<{cell_inc}, ({cell_fim}+1)-{cell_inc}-({cell_int}/1440), {cell_fim}-{cell_inc}-({cell_int}/1440))'
     
     ws[cell_res] = formula_horas
-    ws[cell_res].font = font_bold
+    ws[cell_res].font = Font(name="Arial", size=10, bold=True, color="000000")
     ws[cell_res].fill = fill_destaque
     ws[cell_res].number_format = '[hh]:mm'
     ws[cell_res].alignment = align_center
     curr_row += 2
 
-    # SEÇÃO 3: CONSUMO DE INSUMOS
+    # Seção 3: Insumos
     ws.merge_cells(f"A{curr_row}:E{curr_row}")
     ws[f"A{curr_row}"] = "3. REGISTRO DE INSUMOS E MATERIAIS"
     ws[f"A{curr_row}"].font = font_secao
@@ -208,7 +194,6 @@ if btn_submeter:
     ws[f"A{curr_row}"].alignment = align_left
     curr_row += 1
 
-    # Cabeçalho da Tabela de Insumos
     headers_tabela = ["Item", "Descrição do Insumo", "Quantidade", "Unidade", "Status/Aplicação"]
     for col_idx, header in enumerate(headers_tabela, 1):
         cell = ws.cell(row=curr_row, column=col_idx, value=header)
@@ -218,7 +203,6 @@ if btn_submeter:
         cell.border = border_celula
     curr_row += 1
 
-    # Inserção das linhas de insumos
     for idx, row in df_insumos_input.iterrows():
         ws.cell(row=curr_row, column=1, value=idx + 1).alignment = align_center
         ws.cell(row=curr_row, column=2, value=row["Descrição do Insumo"]).alignment = align_left
@@ -234,7 +218,7 @@ if btn_submeter:
 
     curr_row += 1
 
-    # SEÇÃO 4: OBSERVAÇÕES E ASSINATURA
+    # Seção 4: Observações
     ws.merge_cells(f"A{curr_row}:E{curr_row}")
     ws[f"A{curr_row}"] = "4. OBSERVAÇÕES TÉCNICAS E OCORRÊNCIAS"
     ws[f"A{curr_row}"].font = font_secao
@@ -248,39 +232,34 @@ if btn_submeter:
     ws[f"A{curr_row}"].font = font_dados
     curr_row += 4
 
-    # Campo de Assinatura Digital / Responsável
+    # Assinatura
     ws.merge_cells(f"B{curr_row}:D{curr_row}")
     ws[f"B{curr_row}"].border = Border(top=Side(border_style="thin", color="000000"))
     ws[f"B{curr_row}"] = f"Assinatura do Responsável: {operador_nome}"
     ws[f"B{curr_row}"].font = font_subtitulo
     ws[f"B{curr_row}"].alignment = align_center
 
-    # AJUSTE AUTOMÁTICO DE LARGURA DE COLUNAS
-    merged_coords = [r.coord for r in ws.merged_cells.ranges]
+    # Ajuste de largura das colunas
     for col in ws.columns:
         max_len = 0
         col_letter = get_column_letter(col[0].column)
         for cell in col:
             if cell.value:
-                if any(cell.coordinate in rng for rng in merged_coords):
-                    continue
                 max_len = max(max_len, len(str(cell.value)))
-        ws.column_dimensions[col_letter].width = max(max_len + 5, 14)
+        ws.column_dimensions[col_letter].width = max(max_len + 3, 12)
 
-    # GRAVAÇÃO EM BUFFER MEMÓRIA
+    # Gravação no buffer em memória
     buffer_xls = io.BytesIO()
     wb.save(buffer_xls)
     buffer_xls.seek(0)
 
-    # ==========================================
-    # BOTÃO DE DOWNLOAD COMPATÍVEL COM IOS/ANDROID
-    # ==========================================
-    b64 = base64.b64encode(buffer_xls.getvalue()).decode()
-    nome_arquivo = f"Boletim_Tecnico_{furo_id}_{data_boletim.strftime('%Y%m%d')}.xlsx"
+    # Botão de Download Excel
+    b64_xls = base64.b64encode(buffer_xls.getvalue()).decode()
+    nome_arquivo_xls = f"Boletim_Tecnico_{furo_id}_{data_boletim.strftime('%Y%m%d')}.xlsx"
 
     btn_excel_html = f'''
-        <a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" 
-           download="{nome_arquivo}" 
+        <a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64_xls}" 
+           download="{nome_arquivo_xls}" 
            target="_blank" 
            style="text-decoration: none;">
             <button style="
@@ -293,13 +272,13 @@ if btn_submeter:
                 font-size: 16px;
                 font-weight: bold;
                 cursor: pointer;
-                margin-top: 15px;
+                margin-top: 10px;
                 margin-bottom: 10px;">
                 📊 Baixar Planilha Excel ABNT (.xlsx)
             </button>
         </a>
     '''
-    
+
     st.success("✅ Boletim Diário gerado com sucesso!")
     st.markdown(btn_excel_html, unsafe_allow_html=True)
     st.caption("📱 *Dica para iPhone/iOS: Após o download, toque em '‹ Safari' no canto superior esquerdo para retornar.*")
