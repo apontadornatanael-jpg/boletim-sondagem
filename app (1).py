@@ -279,7 +279,7 @@ prox_de = st.session_state['manobras'][-1]['Para (m)'] if st.session_state['mano
 prox_para = round(prox_de + 1.5, 2)
 rec_total_ant = st.session_state['manobras'][-1]['Rec. Total (m)'] if st.session_state['manobras'] else 0.0
 
-# --- Acrescentado: Peça de Corte / Equipamento ---
+# --- Peça de Corte e Revestimento ---
 st.subheader("🛠️ Peça de Corte e Revestimento")
 col_pc1, col_pc2, col_pc3, col_pc4, col_pc5 = st.columns(5)
 with col_pc1:
@@ -308,16 +308,16 @@ with col_m4:
 with col_m5:
     rqd = st.number_input("RQD (m)", value=round((para - de) * 0.8, 2), step=0.1, format="%.2f")
 
-# --- Acrescentado: Horários e Horímetro da Manobra ---
+# --- Horários do Operacional ---
 col_h1, col_h2, col_h3, col_h4 = st.columns(4)
 with col_h1:
-    horimetro_ini = st.number_input("Horímetro Inicial", value=0.0, step=0.1, format="%.1f")
+    hora_ini = st.time_input("Horário Inicial", value=datetime.now().time())
 with col_h2:
-    horimetro_fim = st.number_input("Horímetro Final", value=0.0, step=0.1, format="%.1f")
+    hora_fim = st.time_input("Horário Final", value=datetime.now().time())
 with col_h3:
-    hora_ini = st.time_input("Hora Inicial", value=datetime.now().time())
+    tempo_refeicao = st.text_input("Refeição", placeholder="Ex: 01:00 ou 12:00-13:00")
 with col_h4:
-    hora_fim = st.time_input("Hora Final", value=datetime.now().time())
+    manutencao_prev = st.text_input("Manutenção Preventiva", placeholder="Ex: 00:15 ou 07:15-07:30")
 
 # --- Litologia, Alteração e Observações ---
 col_l1, col_l2, col_l3 = st.columns(3)
@@ -326,7 +326,7 @@ with col_l1:
 with col_l2:
     alteracao = st.selectbox("Alteração", ['Solo / Inconsol.', 'Completamente Alterada', 'Muito Alterada', 'Moderadamente Alterada', 'Pouco Alterada', 'Rocha Sã'])
 with col_l3:
-    obs = st.text_input("Observações Geotécnicas / Descrição Serviços", placeholder="Ex: Perfurando, Manutenção, RPT, Fraturado...")
+    obs = st.text_input("Observações Geotécnicas / Descrição Serviços", placeholder="Ex: Perfurando, RPT, Fraturado...")
 
 st.subheader("📷 Registro Fotográfico da Amostra / Caixa")
 aba_cam, aba_up = st.tabs(["📸 Tirar Foto Agora", "📁 Carregar da Galeria"])
@@ -367,13 +367,20 @@ if btn_adicionar:
             'RQD (m)': rqd, 'RQD (%)': pct_rqd, 'Qualidade RQD': rqd_class,
             'Diâm. Peça': peca_diam, 'Coroa nº': peca_coroa, 'Calib. nº': peca_calib,
             'Nº Caixa': num_caixa, 'Revestimento': revest_info,
-            'Horímetro Ini': horimetro_ini, 'Horímetro Fim': horimetro_fim,
-            'Hora Ini': hora_ini.strftime("%H:%M"), 'Hora Fim': hora_fim.strftime("%H:%M"),
+            'Hora Inicial': hora_ini.strftime("%H:%M"), 
+            'Hora Final': hora_fim.strftime("%H:%M"),
+            'Refeição': tempo_refeicao,
+            'Manutenção Preventiva': manutencao_prev,
             'Litologia': litologia, 'Alteração': alteracao, 
             'Observações': obs, 'Foto': img_capturada
         })
         st.success("✅ Manobra registrada!")
         st.rerun()
+
+if btn_remover and st.session_state['manobras']:
+    st.session_state['manobras'].pop()
+    st.warning("🗑️ Última manobra removida.")
+    st.rerun()
 
 if btn_remover and st.session_state['manobras']:
     st.session_state['manobras'].pop()
