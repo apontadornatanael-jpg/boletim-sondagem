@@ -207,13 +207,40 @@ with col_furo2:
     diametro = st.selectbox("Diâmetro", ['HQ (63.5mm)', 'NQ (47.6mm)', 'BQ (36.5mm)', 'RC (Circ. Reversa)', 'Outro'])
 
 with st.expander("🌐 Coordenadas GPS e Mapa do Furo", expanded=True):
+    # Captura de Localização Automática (GPS do Dispositivo / Timestamp)
+    # Tenta obter a posição real do GPS/Navegador
+    loc_auto = st_javascript("""
+        new Promise((resolve) => {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (pos) => resolve({lat: pos.coords.latitude, lon: pos.coords.longitude}),
+                    (err) => resolve(null),
+                    {enableHighAccuracy: true, timeout: 5000}
+                );
+            } else {
+                resolve(null);
+            }
+        });
+    """)
+
+    # Valores padrão iniciais caso a geolocalização falhe ou esteja desativada
+    lat_padrao = -6.515831
+    lon_padrao = -36.344525
+
+    if loc_auto and isinstance(loc_auto, dict) and 'lat' in loc_auto and 'lon' in loc_auto:
+        lat_padrao = float(loc_auto['lat'])
+        lon_padrao = float(loc_auto['lon'])
+
     col_geo1, col_geo2, col_geo3, col_geo4 = st.columns(4)
     with col_geo1:
-        utm_e = st.number_input("Coordenada UTM (E)", value=250100.0, format="%.2f")
-        utm_n = st.number_input("Coordenada UTM (N)", value=9245000.0, format="%.2f")
+        lat_furo = st.number_input("Latitude", value=lat_padrao, format="%.6f")
+        lon_furo = st.number_input("Longitude", value=lon_padrao, format="%.6f")
     with col_geo2:
-        cota_z = st.number_input("Cota Z (m)", value=480.5, format="%.2f")
         datum = st.text_input("Datum", value="SIRGAS 2000")
+        # Mantém compatibilidade com o restante do código que usa as variáveis utm_e, utm_n e cota_z
+        utm_e = lat_furo 
+        utm_n = lon_furo
+        cota_z = 0.0
     with col_geo3:
         inclinacao = st.number_input("Inclinação (°)", value=-90.0, format="%.1f")
         azimute = st.number_input("Azimute (°)", value=0.0, format="%.1f")
@@ -222,20 +249,15 @@ with st.expander("🌐 Coordenadas GPS e Mapa do Furo", expanded=True):
         data_fim = st.date_input("Data de Término", value=datetime.now())
 
     st.markdown("---")
-    col_gps1, col_gps2 = st.columns(2)
-    with col_gps1:
-        lat_furo = st.number_input("Latitude", value=-6.512345, format="%.6f")
-    with col_gps2:
-        lon_furo = st.number_input("Longitude", value=-36.512345, format="%.6f")
     
+    # Exibição do Mapa Automático centrado na Latitude e Longitude definidas acima
     m = folium.Map(location=[lat_furo, lon_furo], zoom_start=16, tiles=None)
     folium.TileLayer(
         tiles='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
         attr='Esri World Imagery', name='Satélite (Esri)', overlay=False
     ).add_to(m)
     folium.Marker([lat_furo, lon_furo], popup=f"Furo: {furo_id}", icon=folium.Icon(color='red')).add_to(m)
-    st_folium(m, width="100%", height=300)
-
+    st_folium(m, width="100%", height=350)
 st.markdown("---")
 
 st.header("2. Registro de Manobras e Fotos do Testemunho")
