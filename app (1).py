@@ -277,8 +277,26 @@ st.header("2. Registro de Manobras e Fotos do Testemunho")
 
 prox_de = st.session_state['manobras'][-1]['Para (m)'] if st.session_state['manobras'] else 0.0
 prox_para = round(prox_de + 1.5, 2)
+rec_total_ant = st.session_state['manobras'][-1]['Rec. Total (m)'] if st.session_state['manobras'] else 0.0
 
-col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+# --- Acrescentado: Peça de Corte / Equipamento ---
+st.subheader("🛠️ Peça de Corte e Revestimento")
+col_pc1, col_pc2, col_pc3, col_pc4, col_pc5 = st.columns(5)
+with col_pc1:
+    peca_diam = st.text_input("Diâm. Peça", value="NQ")
+with col_pc2:
+    peca_coroa = st.text_input("Coroa nº", placeholder="Ex: 89173-17")
+with col_pc3:
+    peca_calib = st.text_input("Calib. nº", placeholder="Ex: 1381/17")
+with col_pc4:
+    num_caixa = st.number_input("Nº da Caixa", min_value=1, value=1, step=1)
+with col_pc5:
+    revest_info = st.text_input("Revestimento (Diâm / De-Até)", placeholder="Ex: HQ De 0,00 até 34,40m")
+
+st.markdown("---")
+
+# --- Dados de Avanço e Recuperação ---
+col_m1, col_m2, col_m3, col_m4, col_m5 = st.columns(5)
 with col_m1:
     de = st.number_input("De (m)", value=float(prox_de), step=0.5, format="%.2f")
 with col_m2:
@@ -286,15 +304,29 @@ with col_m2:
 with col_m3:
     rec = st.number_input("Rec. (m)", value=round(para - de, 2), step=0.1, format="%.2f")
 with col_m4:
+    rec_total = st.number_input("Rec. Total Acum. (m)", value=round(rec_total_ant + rec, 2), step=0.1, format="%.2f")
+with col_m5:
     rqd = st.number_input("RQD (m)", value=round((para - de) * 0.8, 2), step=0.1, format="%.2f")
 
+# --- Acrescentado: Horários e Horímetro da Manobra ---
+col_h1, col_h2, col_h3, col_h4 = st.columns(4)
+with col_h1:
+    horimetro_ini = st.number_input("Horímetro Inicial", value=0.0, step=0.1, format="%.1f")
+with col_h2:
+    horimetro_fim = st.number_input("Horímetro Final", value=0.0, step=0.1, format="%.1f")
+with col_h3:
+    hora_ini = st.time_input("Hora Inicial", value=datetime.now().time())
+with col_h4:
+    hora_fim = st.time_input("Hora Final", value=datetime.now().time())
+
+# --- Litologia, Alteração e Observações ---
 col_l1, col_l2, col_l3 = st.columns(3)
 with col_l1:
     litologia = st.selectbox("Litologia", list(DADOS_LITOLOGIA.keys()))
 with col_l2:
     alteracao = st.selectbox("Alteração", ['Solo / Inconsol.', 'Completamente Alterada', 'Muito Alterada', 'Moderadamente Alterada', 'Pouco Alterada', 'Rocha Sã'])
 with col_l3:
-    obs = st.text_input("Observações Geotécnicas", placeholder="Ex: RPT, Fraturado, veios de quartzo...")
+    obs = st.text_input("Observações Geotécnicas / Descrição Serviços", placeholder="Ex: Perfurando, Manutenção, RPT, Fraturado...")
 
 st.subheader("📷 Registro Fotográfico da Amostra / Caixa")
 aba_cam, aba_up = st.tabs(["📸 Tirar Foto Agora", "📁 Carregar da Galeria"])
@@ -331,14 +363,22 @@ if btn_adicionar:
         st.session_state['manobras'].append({
             'Manobra': len(st.session_state['manobras']) + 1,
             'De (m)': de, 'Para (m)': para, 'Avanço (m)': avanco,
-            'Rec. (m)': rec, 'Rec (%)': pct_rec, 'RQD (m)': rqd,
-            'RQD (%)': pct_rqd, 'Qualidade RQD': rqd_class,
+            'Rec. (m)': rec, 'Rec. Total (m)': rec_total, 'Rec (%)': pct_rec, 
+            'RQD (m)': rqd, 'RQD (%)': pct_rqd, 'Qualidade RQD': rqd_class,
+            'Diâm. Peça': peca_diam, 'Coroa nº': peca_coroa, 'Calib. nº': peca_calib,
+            'Nº Caixa': num_caixa, 'Revestimento': revest_info,
+            'Horímetro Ini': horimetro_ini, 'Horímetro Fim': horimetro_fim,
+            'Hora Ini': hora_ini.strftime("%H:%M"), 'Hora Fim': hora_fim.strftime("%H:%M"),
             'Litologia': litologia, 'Alteração': alteracao, 
             'Observações': obs, 'Foto': img_capturada
         })
         st.success("✅ Manobra registrada!")
         st.rerun()
 
+if btn_remover and st.session_state['manobras']:
+    st.session_state['manobras'].pop()
+    st.warning("🗑️ Última manobra removida.")
+    st.rerun()
 if btn_remover and st.session_state['manobras']:
     st.session_state['manobras'].pop()
     st.warning("🗑️ Última manobra removida.")
