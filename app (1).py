@@ -25,9 +25,6 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import cm
 from reportlab.pdfgen import canvas
 
-# Componente de Assinatura
-from streamlit_drawable_canvas import st_canvas
-
 # Ocultar menu, cabeçalho, rodapé e botões de gerenciamento
 ocultar_elementos = """
     <style>
@@ -415,7 +412,7 @@ st.markdown("---")
 
 st.header("3. Perfil Litológico, Observações Gerais e Relatórios")
 
-# --- NOVO BLOCO DE OBSERVAÇÕES NO FINAL DO BOLETIM ---
+# --- BLOCO DE OBSERVAÇÕES NO FINAL DO BOLETIM ---
 obs_gerais_furo = st.text_area(
     "📝 Observações Técnicas Gerais / Notas de Campo do Furo", 
     placeholder="Digite observações importantes sobre o furo, trocas de ferramenta, perdas de água, fraturamento especial, etc...",
@@ -464,13 +461,17 @@ if st.session_state['manobras']:
 
     st.dataframe(df_manobras.drop(columns=['Foto']), use_container_width=True, hide_index=True)
 
-    st.markdown("### ✍️ Assinatura Digital do Responsável")
-    canvas_result = st_canvas(fill_color="rgba(255, 255, 255, 0)", stroke_width=2, stroke_color="#000000", background_color="#F8FAFC", height=120, width=400, drawing_mode="freedraw", key="canvas_assinatura")
-
-    tem_assinatura = (
-        canvas_result.image_data is not None 
-        and canvas_result.image_data.any()
-    )
+    # --- CAMPO DE ASSINATURA MANUAL NO STREAMLIT ---
+    st.markdown("---")
+    st.subheader("✍️ Validação Técnica")
+    st.markdown(f"""
+    <div style='border: 1px dashed #CBD5E1; padding: 25px; border-radius: 12px; background-color: #F8FAFC; text-align: center; margin-top: 10px; margin-bottom: 20px;'>
+        <p style='margin-bottom: 40px; color: #64748B; font-size: 0.9em;'>Espaço reservado para assinatura física ou digital no documento gerado</p>
+        <p style='margin: 0; font-weight: bold; color: #0F172A;'>____________________________________________________</p>
+        <p style='margin-top: 5px; font-weight: bold; color: #0F172A;'>{geologo}</p>
+        <p style='margin: 0; color: #475569; font-size: 0.9em;'>Geólogo Responsável</p>
+    </div>
+    """, unsafe_allow_html=True)
 
     col_exp1, col_exp2 = st.columns(2)
 
@@ -640,26 +641,17 @@ if st.session_state['manobras']:
         ws[f'A{curr_row}'].font = font_body
         ws[f'A{curr_row}'].alignment = Alignment(horizontal='left', vertical='top', wrap_text=True)
 
+        # --- ASSINATURA NO EXCEL (ÚNICA LINHA) ---
         curr_row += 4
         ws.merge_cells(f'A{curr_row}:E{curr_row}')
-        ws[f'A{curr_row}'] = "4. VALIDAÇÃO E ASSINATURA TÉCNICA"
+        ws[f'A{curr_row}'] = "4. VALIDAÇÃO TÉCNICA"
         ws[f'A{curr_row}'].font = font_sec
         ws[f'A{curr_row}'].fill = fill_sec
 
-        curr_row += 2
-        if tem_assinatura:
-            img_ass_pil = Image.fromarray(canvas_result.image_data.astype('uint8'))
-            ass_excel_buf = io.BytesIO()
-            img_ass_pil.save(ass_excel_buf, format='PNG')
-            ass_excel_buf.seek(0)
-            
-            xl_ass = OpenpyxlImage(ass_excel_buf)
-            xl_ass.width = 180
-            xl_ass.height = 55
-            ws.add_image(xl_ass, f'A{curr_row}')
-
-        ws.cell(row=curr_row+3, column=1, value="_________________________________________").font = font_body
-        ws.cell(row=curr_row+4, column=1, value=f"{geologo} - Geólogo Responsável").font = Font(name='Calibri', size=10, bold=True)
+        curr_row += 3
+        ws.cell(row=curr_row, column=1, value="_________________________________________").font = font_body
+        ws.cell(row=curr_row+1, column=1, value=f"{geologo}").font = Font(name='Calibri', size=10, bold=True)
+        ws.cell(row=curr_row+2, column=1, value="Geólogo Responsável").font = Font(name='Calibri', size=9, italic=True)
 
         for col in ws.columns:
             max_len = 0
@@ -798,7 +790,7 @@ if st.session_state['manobras']:
         elements.append(t_manobras)
         elements.append(Spacer(1, 12))
 
-        # BLOCO NOVO: OBSERVAÇÕES TÉCNICAS E NOTAS DE CAMPO
+        # OBSERVAÇÕES TÉCNICAS E NOTAS DE CAMPO
         elements.append(Paragraph("<b>3. OBSERVAÇÕES TÉCNICAS E NOTAS DE CAMPO</b>", abnt_sec))
         texto_obs = obs_gerais_furo if obs_gerais_furo.strip() else "Sem observações adicionais registradas para este furo."
         t_obs = Table([[Paragraph(texto_obs, abnt_text)]], colWidths=[16.0*cm])
@@ -813,16 +805,9 @@ if st.session_state['manobras']:
         elements.append(t_obs)
         elements.append(Spacer(1, 15))
 
-        # Assinatura
+        # ASSINATURA NO PDF (ÚNICA LINHA ESPAÇADA)
         elements.append(Paragraph("<b>4. VALIDAÇÃO TÉCNICA</b>", abnt_sec))
-        if tem_assinatura:
-            img_ass_pil = Image.fromarray(canvas_result.image_data.astype('uint8'))
-            ass_pdf_buf = io.BytesIO()
-            img_ass_pil.save(ass_pdf_buf, format='PNG')
-            ass_pdf_buf.seek(0)
-            rl_ass = RLImage(ass_pdf_buf, width=5.0*cm, height=1.8*cm)
-            elements.append(rl_ass)
-
+        elements.append(Spacer(1, 1.5*cm)) # Espaço suficiente para assinatura física
         elements.append(Paragraph(f"__________________________________________<br/><b>{geologo}</b><br/>Geólogo Responsável", abnt_text))
 
         doc.build(elements, canvasmaker=NumberedCanvas)
