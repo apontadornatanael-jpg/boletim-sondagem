@@ -196,7 +196,7 @@ def obter_mapa_satelite_esri_alta_res(lat, lon, zoom=16, width=1200, height=600)
 DADOS_LITOLOGIA = {
     'Solo / Cobertura':        {'cor': '#E5D3B3', 'hatch': '....'},
     'Siltito / Argilito':      {'cor': '#D2B48C', 'hatch': '----'},
-    'Quartzito':               {'cor': '#FFF8DC', 'hatch': '////'},
+    'Quartzito':                {'cor': '#FFF8DC', 'hatch': '////'},
     'Schisto / Filito':        {'cor': '#94A3B8', 'hatch': '\\\\\\\\'},
     'Gnaisse / Granito':       {'cor': '#E2E8F0', 'hatch': '++++'},
     'Basalto / Diabásio':      {'cor': '#475569', 'hatch': 'xxxx'},
@@ -728,84 +728,5 @@ if st.session_state['manobras']:
             [Paragraph("<b>ID do Furo:</b>", abnt_text), Paragraph(furo_id, abnt_text_bold), Paragraph("<b>Supervisor:</b>", abnt_text), Paragraph(supervisor, abnt_text)],
             [Paragraph("<b>Diâmetro:</b>", abnt_text), Paragraph(diametro, abnt_text), Paragraph("<b>Geólogo Resp.:</b>", abnt_text), Paragraph(geologo, abnt_text)],
             [Paragraph("<b>Início / Fim:</b>", abnt_text), Paragraph(f"{data_inicio} a {data_fim}", abnt_text), Paragraph("<b>Sondador:</b>", abnt_text), Paragraph(sondador, abnt_text)],
-            [Paragraph("<b>Incl./Azimute:</b>", abnt_text), Paragraph(f"{inclinacao}° / {azimute}°", abnt_text), Paragraph("<b>Datum:</b>", abnt_text), Paragraph(datum, abnt_text)],
-            [Paragraph("<b>Latitude:</b>", abnt_text), Paragraph(f"{lat_furo:.6f}", abnt_text), Paragraph("<b>Longitude:</b>", abnt_text), Paragraph(f"{lon_furo:.6f}", abnt_text)]
+            [Paragraph("<b>Incl./Azimute:</b>", abnt_text), Paragraph(f"{inclinacao}° / {azimute}°", abnt_text), Paragraph("<b>Datum:</b>", abnt_text), Paragraph(datum, abnt_text)]
         ]
-        t_furo = Table(dados_furo_table, colWidths=[3.2*cm, 4.8*cm, 3.2*cm, 4.8*cm])
-        t_furo.setStyle(TableStyle([
-            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
-            ('BACKGROUND', (0,0), (0,-1), colors.HexColor('#F8FAFC')),
-            ('BACKGROUND', (2,0), (2,-1), colors.HexColor('#F8FAFC')),
-            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ]))
-        elements.append(t_furo)
-        elements.append(Spacer(1, 10))
-
-        # INSERÇÃO DO MAPA DE ALTA RESOLUÇÃO NO PDF
-        mapa_sat_stream = obter_mapa_satelite_esri_alta_res(lat_furo, lon_furo, zoom=16, width=1200, height=600)
-        if mapa_sat_stream:
-            elements.append(Paragraph("<b>LOCALIZAÇÃO CARTOGRÁFICA / IMAGEM DE SATÉLITE</b>", abnt_sec))
-            rl_mapa = RLImage(mapa_sat_stream, width=16.0*cm, height=8.0*cm)
-            elements.append(rl_mapa)
-            elements.append(Spacer(1, 10))
-
-        # Tabela de Manobras
-        elements.append(Paragraph("<b>2. TELA DE MANOBRAS E REGISTROS DE CAMPO</b>", abnt_sec))
-        
-        headers_pdf = [Paragraph(f"<b>{c}</b>", abnt_th) for c in ['Man.', 'De-Para', 'Av.(m)', 'Rec.(m)', 'Rec%', 'RQD%', 'Peça', 'Caixa', 'Horário', 'Litologia']]
-        rows_pdf = [headers_pdf]
-        
-        for idx, r in df_manobras.iterrows():
-            rows_pdf.append([
-                Paragraph(str(r['Manobra']), abnt_td),
-                Paragraph(f"{r['De (m)']:.1f}-{r['Para (m)']:.1f}", abnt_td),
-                Paragraph(f"{r['Avanço (m)']:.2f}", abnt_td),
-                Paragraph(f"{r['Rec. (m)']:.2f}", abnt_td),
-                Paragraph(f"{r['Rec (%)']:.0f}%", abnt_td),
-                Paragraph(f"{r['RQD (%)']:.0f}%", abnt_td),
-                Paragraph(str(r['Diâm. Peça']), abnt_td),
-                Paragraph(str(r['Nº Caixa']), abnt_td),
-                Paragraph(f"{r['Hora Inicial']}-{r['Hora Final']}", abnt_td),
-                Paragraph(str(r['Litologia']), abnt_td),
-            ])
-
-        t_manobras = Table(rows_pdf, colWidths=[1.1*cm, 2.0*cm, 1.4*cm, 1.4*cm, 1.3*cm, 1.3*cm, 1.4*cm, 1.3*cm, 2.2*cm, 2.6*cm])
-        t_manobras.setStyle(TableStyle([
-            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#0284C7')),
-            ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
-            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-            ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-        ]))
-        elements.append(t_manobras)
-        elements.append(Spacer(1, 12))
-
-        # OBSERVAÇÕES TÉCNICAS E NOTAS DE CAMPO
-        elements.append(Paragraph("<b>3. OBSERVAÇÕES TÉCNICAS E NOTAS DE CAMPO</b>", abnt_sec))
-        texto_obs = obs_gerais_furo if obs_gerais_furo.strip() else "Sem observações adicionais registradas para este furo."
-        t_obs = Table([[Paragraph(texto_obs, abnt_text)]], colWidths=[16.0*cm])
-        t_obs.setStyle(TableStyle([
-            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
-            ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#F8FAFC')),
-            ('TOPPADDING', (0,0), (-1,-1), 8),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 8),
-            ('LEFTPADDING', (0,0), (-1,-1), 8),
-            ('RIGHTPADDING', (0,0), (-1,-1), 8),
-        ]))
-        elements.append(t_obs)
-        elements.append(Spacer(1, 15))
-
-        # LINHA ÚNICA DE ASSINATURA NO PDF
-        elements.append(Paragraph("<b>4. VALIDAÇÃO TÉCNICA</b>", abnt_sec))
-        elements.append(Spacer(1, 20))
-        elements.append(Paragraph(f"__________________________________________<br/><b>{geologo}</b><br/>Geólogo Responsável", abnt_text))
-
-        doc.build(elements, canvasmaker=NumberedCanvas)
-        
-        st.download_button(
-            label="📄 Baixar Boletim em PDF (.pdf)",
-            data=pdf_buf.getvalue(),
-            file_name=f"Boletim_{furo_id}.pdf",
-            mime="application/pdf",
-            use_container_width=True
-        )
