@@ -783,17 +783,36 @@ if st.session_state['manobras']:
             label="📊 Baixar Planilha Excel Completa",
             data=buffer_xls,
             file_name=f"boletim_sondagem_{furo_id}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            use_container_width=True
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
 
-    # --- EXPORTAÇÃO PDF CORRIGIDA ---
+    # --- EXPORTAÇÃO PDF ---
     with col_exp2:
-        buffer_pdf = gerar_pdf(df_manobras, img_perfil_bytes, obs_gerais_furo)
+        pdf_bytes = gerar_pdf(df_manobras, img_perfil_bytes, obs_gerais_furo)
         st.download_button(
-            label="📄 Exportar Relatório em PDF",
-            data=buffer_pdf,
-            file_name=f"boletim_sondagem_{furo_id}.pdf",
-            mime="application/pdf",
-            use_container_width=True
+            label="📄 Baixar Relatório Técnico PDF",
+            data=pdf_bytes,
+            file_name=f"relatorio_sondagem_{furo_id}.pdf",
+            mime="application/pdf"
         )
+
+    # --- REGISTRO FOTOGRÁFICO REGISTRADO ---
+    st.markdown("---")
+    st.subheader("🖼️ Galeria de Fotos dos Testemunhos Capturados")
+    fotos_manobras = [m for m in st.session_state['manobras'] if m.get('Foto') is not None]
+    
+    if fotos_manobras:
+        cols_foto = st.columns(min(len(fotos_manobras), 3))
+        for idx, item in enumerate(fotos_manobras):
+            col_target = cols_foto[idx % 3]
+            with col_target:
+                st.image(
+                    item['Foto'], 
+                    caption=f"Manobra #{item['Manobra']} | Caix.: {item.get('Nº Caixa', 1)} ({item['De (m)']}m a {item['Para (m)']}m)", 
+                    use_container_width=True
+                )
+    else:
+        st.info("Nenhuma imagem registrada para as manobras até o momento.")
+
+else:
+    st.info("💡 Insira os dados da primeira manobra acima para gerar o perfil estratigráfico, dashboards e relatórios.")
