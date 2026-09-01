@@ -198,9 +198,7 @@ with col_furo1:
     furo_id = st.text_input("ID do Furo", value="F-001")
 with col_furo2:
     diametro = st.selectbox("Diâmetro", ['HQ (63.5mm)', 'NQ (47.6mm)', 'BQ (36.5mm)', 'RC (Circ. Reversa)', 'Outro'])
-
-with st.expander("🌐 Coordenadas GPS e Mapa do Furo", expanded=True):
-   from streamlit_js_eval import get_geolocation
+from streamlit_geolocator import streamlit_geolocator
 
 with st.expander("🌐 Coordenadas GPS e Mapa do Furo", expanded=True):
     lat_padrao = -6.515831
@@ -211,20 +209,29 @@ with st.expander("🌐 Coordenadas GPS e Mapa do Furo", expanded=True):
     if 'lon_gps' not in st.session_state:
         st.session_state['lon_gps'] = lon_padrao
 
-    col_btn_gps, _ = st.columns([1, 2])
-    with col_btn_gps:
-        # Captura as coordenadas de forma nativa do navegador via JS sem violar o iframe
-        loc = get_geolocation()
+    # Botão visual e funcional de captura de GPS
+    st.markdown("#### 🎯 Captura Automática de Localização")
+    location = streamlit_geolocator(component_key="get_user_gps")
+
+    if location and 'coords' in location and location['coords'] is not None:
+        nova_lat = round(location['coords']['latitude'], 6)
+        nova_lon = round(location['coords']['longitude'], 6)
         
-        if loc and 'coords' in loc:
-            st.session_state['lat_gps'] = round(loc['coords']['latitude'], 6)
-            st.session_state['lon_gps'] = round(loc['coords']['longitude'], 6)
-            st.success("🎯 Coordenadas atualizadas via GPS!")
+        # Atualiza a sessão apenas se houver mudança para evitar rerenders infinitos
+        if st.session_state['lat_gps'] != nova_lat or st.session_state['lon_gps'] != nova_lon:
+            st.session_state['lat_gps'] = nova_lat
+            st.session_state['lon_gps'] = nova_lon
+            st.success("✅ Coordenadas capturadas com sucesso!")
+            st.rerun()
 
     col_geo1, col_geo2, col_geo3, col_geo4 = st.columns(4)
     with col_geo1:
-        lat_furo = st.number_input("Latitude", value=st.session_state['lat_gps'], format="%.6f")
-        lon_furo = st.number_input("Longitude", value=st.session_state['lon_gps'], format="%.6f")
+        # Atribuição aos inputs conectados ao session_state com chaves explícitas
+        lat_furo = st.number_input("Latitude", value=st.session_state['lat_gps'], format="%.6f", key="input_lat")
+        lon_furo = st.number_input("Longitude", value=st.session_state['lon_gps'], format="%.6f", key="input_lon")
+        st.session_state['lat_gps'] = lat_furo
+        st.session_state['lon_gps'] = lon_furo
+        
     with col_geo2:
         datum = st.text_input("Datum", value="SIRGAS 2000")
         cota_z = st.number_input("Elevação Z (m)", value=0.0, step=0.5)
@@ -237,14 +244,15 @@ with st.expander("🌐 Coordenadas GPS e Mapa do Furo", expanded=True):
 
     st.markdown("---")
     
-    m = folium.Map(location=[lat_furo, lon_furo], zoom_start=18, tiles=None)
+    # Renderização dinâmica do Mapa
+    m = folium.Map(location=[st.session_state['lat_gps'], st.session_state['lon_gps']], zoom_start=18, tiles=None)
     folium.TileLayer(
         tiles='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
         attr='Esri World Imagery', name='Satélite (Esri)', overlay=False
     ).add_to(m)
 
     folium.Marker(
-        [lat_furo, lon_furo], 
+        [st.session_state['lat_gps'], st.session_state['lon_gps']], 
         popup=f"Furo: {furo_id}", 
         tooltip="Sua Localização Atual",
         icon=folium.Icon(color='red', icon='info-sign')
