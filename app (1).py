@@ -5,7 +5,7 @@ import matplotlib.patches as mpatches
 import io
 import json
 import math
-from datetime import datetime
+from datetime import datetime, timedelta
 from PIL import Image, ImageDraw
 import requests
 
@@ -375,6 +375,15 @@ if btn_adicionar:
         elif pct_rqd < 90: rqd_class = 'Boa'
         else: rqd_class = 'Excelente'
 
+        # Cálculo da duração da manobra em horas
+        t_ini = datetime.combine(datetime.today(), hora_ini)
+        t_fim = datetime.combine(datetime.today(), hora_fim)
+        if t_fim < t_ini:
+            t_fim += timedelta(days=1)
+        duracao_horas = round((t_fim - t_ini).total_seconds() / 3600.0, 2)
+        if duracao_horas == 0:
+            duracao_horas = 0.5  # valor padrão de segurança para não zerar divisão
+
         st.session_state['manobras'].append({
             'Manobra': len(st.session_state['manobras']) + 1,
             'De (m)': de, 'Para (m)': para, 'Avanço (m)': avanco,
@@ -384,6 +393,7 @@ if btn_adicionar:
             'Nº Caixa': num_caixa, 'Revestimento': revest_info,
             'Hora Inicial': hora_ini.strftime("%H:%M"), 
             'Hora Final': hora_fim.strftime("%H:%M"),
+            'Duração (h)': duracao_horas,
             'Refeição': tempo_refeicao,
             'Manutenção Preventiva': manutencao_prev,
             'Litologia': litologia, 'Alteração': alteracao, 
@@ -452,6 +462,51 @@ if st.session_state['manobras']:
     plt.close(fig)
 
     st.dataframe(df_manobras.drop(columns=['Foto']), use_container_width=True, hide_index=True)
+
+    # --- SEÇÃO 4: DASHBOARD DE PRODUÇÃO & KPIS ---
+    st.markdown("---")
+    st.header("4. Dashboard de Produção & Indicadores de Desempenho (KPIs)")
+
+    avanco_total = df_manobras['Avanço (m)'].sum()
+    tempo_total_h = df_manobras['Duração (h)'].sum()
+    taxa_perf_media = round(avanco_total / tempo_total_h, 2) if tempo_total_h > 0 else 0.0
+    rec_media = round(df_manobras['Rec (%)'].mean(), 1)
+    rqd_medio = round(df_manobras['RQD (%)'].mean(), 1)
+
+    kpi1, kpi2, kpi3, kpi4, kpi5 = st.columns(5)
+    kpi1.metric("Avanço Total Acumulado", f"{avanco_total:.2f} m")
+    kpi2.metric("Horas de Operação", f"{tempo_total_h:.2f} h")
+    kpi3.metric("Rendimento Médio", f"{taxa_perf_media:.2f} m/h")
+    kpi4.metric("Recuperação Média", f"{rec_media:.1f} %")
+    kpi5.metric("RQD Médio", f"{rqd_medio:.1f} %")
+
+    col_dash1, col_dash2 = st.columns(2)
+
+    with col_dash1:
+        st.subheader("📈 Progresso do Avanço por Manobra")
+        fig_dash1, ax_d1 = plt.subplots(figsize=(5, 3.5))
+        ax_d1.plot(df_manobras['Manobra'], df_manobras['Avanço (m)'], marker='o', color='#0284C7', linewidth=2, label='Avanço por Mnb (m)')
+        ax_d1.plot(df_manobras['Manobra'], df_manobras['Para (m)'], marker='s', color='#0F172A', linestyle='--', label='Profundidade Acum. (m)')
+        ax_d1.set_xlabel("Número da Manobra")
+        ax_d1.set_ylabel("Metros")
+        ax_d1.grid(True, linestyle=':', alpha=0.6)
+        ax_d1.legend(fontsize=8)
+        plt.tight_layout()
+        st.pyplot(fig_dash1)
+        plt.close(fig_dash1)
+
+    with col_dash2:
+        st.subheader("🌋 Distribuição Litológica Perfurada")
+        lito_dist = df_manobras.groupby('Litologia')['Avanço (m)'].sum()
+        fig_dash2, ax_d2 = plt.subplots(figsize=(5, 3.5))
+        cores_pie = [DADOS_LITOLOGIA.get(l, {}).get('cor', '#CBD5E1') for l in lito_dist.index]
+        ax_d2.pie(lito_dist, labels=lito_dist.index, autopct='%1.1f%%', colors=cores_pie, startangle=140, wedgeprops=dict(width=0.4, edgecolor='w'))
+        ax_d2.set_title("Participação (%) na Metragem", fontsize=9)
+        plt.tight_layout()
+        st.pyplot(fig_dash2)
+        plt.close(fig_dash2)
+
+    st.markdown("---")
 
     # --- CAMPO DE ASSINATURA TÉCNICA SIMPLES ---
     st.markdown("### ✍️ Validação Técnica")
