@@ -446,11 +446,9 @@ if st.session_state['manobras']:
 
     st.pyplot(fig)
     
-    # Salvar o gráfico do perfil litológico em buffer de imagem
-    img_perfil_buf = io.BytesIO()
-    fig.savefig(img_perfil_buf, format='png', dpi=300, bbox_inches='tight')
-    img_perfil_buf.seek(0)
-    
+    # Salvar o gráfico em bytes seguros para reutilização no Excel e PDF
+    img_perfil_bytes = io.BytesIO()
+    fig.savefig(img_perfil_bytes, format='png', dpi=300, bbox_inches='tight')
     plt.close(fig)
 
     st.dataframe(df_manobras.drop(columns=['Foto']), use_container_width=True, hide_index=True)
@@ -622,8 +620,7 @@ if st.session_state['manobras']:
         ws[f'A{curr_row}'].fill = fill_sec
 
         curr_row += 1
-        img_perfil_buf.seek(0)
-        xl_perfil = OpenpyxlImage(img_perfil_buf)
+        xl_perfil = OpenpyxlImage(io.BytesIO(img_perfil_bytes.getvalue()))
         xl_perfil.width = 650
         xl_perfil.height = 270
         ws.add_image(xl_perfil, f'A{curr_row}')
@@ -749,59 +746,48 @@ if st.session_state['manobras']:
         elements.append(Paragraph(empresa.upper(), abnt_titulo_doc))
         elements.append(Paragraph(f"BOLETIM TÉCNICO DE SONDAGEM GEOLÓGICA - FURO {furo_id}", abnt_sub_doc))
 
-        # Adicionar Imagem do Perfil ao ReportLab
+        # Adicionar Imagem do Perfil ao ReportLab usando o buffer em memória
         elements.append(Paragraph("1. PERFIL LITOLÓGICO E GEOTÉCNICO", abnt_sec))
-        
-        img_perfil_buf.seek(0)
-        elements.append(RLImage(img_perfil_buf, width=16*cm, height=6.5*cm))
+        elements.append(RLImage(io.BytesIO(img_perfil_bytes.getvalue()), width=16*cm, height=6.5*cm))
         elements.append(Spacer(1, 10))
 
         # Tabela de Manobras
         elements.append(Paragraph("2. REGISTRO DE MANOBRAS", abnt_sec))
         
-        dados_tabela = [["M", "De (m)", "Para (m)", "Rec (m)", "Rec (%)", "RQD (%)", "Litologia"]]
+        dados_tabela = [["Mnb", "De-Para", "Avanço", "Rec (%)", "RQD (%)", "Litologia"]]
         for m in st.session_state['manobras']:
             dados_tabela.append([
                 str(m['Manobra']),
-                f"{m['De (m)']:.2f}",
-                f"{m['Para (m)']:.2f}",
-                f"{m['Rec. (m)']:.2f}",
+                f"{m['De (m)']:.1f} - {m['Para (m)']:.1f}",
+                f"{m['Avanço (m)']:.2f}m",
                 f"{m['Rec (%)']:.1f}%",
                 f"{m['RQD (%)']:.1f}%",
-                m['Litologia']
+                str(m['Litologia'])
             ])
-        
-        t_manobras = Table(dados_tabela, colWidths=[1*cm, 2.2*cm, 2.2*cm, 2.2*cm, 2.2*cm, 2.2*cm, 4*cm])
-        t_manobras.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0369A1')),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Times-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 8),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 5),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+
+        tabela_manobras = Table(dados_tabela, colWidths=[1.2*cm, 3*cm, 2.5*cm, 2.5*cm, 2.5*cm, 4.3*cm])
+        tabela_manobras.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#0369A1')),
+            ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
+            ('FONTNAME', (0,0), (-1,0), 'Times-Bold'),
+            ('FONTSIZE', (0,0), (-1,-1), 8),
+            ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+            ('GRID', (0,0), (-1,-1), 0.5, colors.grey)
         ]))
-        elements.append(t_manobras)
+        elements.append(tabela_manobras)
         elements.append(Spacer(1, 15))
 
-        # Observações
-        elements.append(Paragraph("3. OBSERVAÇÕES TÉCNICAS E NOTAS DE CAMPO", abnt_sec))
-        txt_obs = obs_gerais_furo if obs_gerais_furo else "Nenhuma observação complementar registrada."
-        elements.append(Paragraph(txt_obs, abnt_body))
-        elements.append(Spacer(1, 25))
-
-        # Validação / Assinatura
-        elements.append(Paragraph("4. VALIDAÇÃO TÉCNICA", abnt_sec))
+        # Observações e Assinatura
+        elements.append(Paragraph("3. OBSERVAÇÕES TÉCNICAS", abnt_sec))
+        elements.append(Paragraph(obs_gerais_furo if obs_gerais_furo else "Nenhuma observação informada.", abnt_body))
         elements.append(Spacer(1, 20))
-        elements.append(Paragraph("_________________________________________", abnt_body))
+        elements.append(Paragraph("_____________________________________________", abnt_body))
         elements.append(Paragraph(f"<b>{geologo}</b><br/>Geólogo Responsável", abnt_body))
 
-        # Build PDF
         doc.build(elements, canvasmaker=NumberedCanvas)
-        pdf_buf.seek(0)
 
         st.download_button(
-            label="📄 Baixar Relatório PDF (ABNT)",
+            label="📄 Baixar Relatório PDF (.pdf)",
             data=pdf_buf.getvalue(),
             file_name=f"Boletim_{furo_id}.pdf",
             mime="application/pdf",
