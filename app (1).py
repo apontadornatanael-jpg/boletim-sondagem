@@ -129,26 +129,19 @@ with st.sidebar:
 # --- APLICAÇÃO PRINCIPAL ---
 
 def obter_mapa_satelite_esri_alta_res(lat, lon, zoom=16, width=1200, height=600):
-    """
-    Gera um mapa de imagem composto de alta resolução centralizado exatamente no ponto lat/lon.
-    Monta uma grade 3x3 de tiles para garantir cobertura completa sem distorção.
-    """
     try:
         n = 2.0 ** zoom
         lat_rad = math.radians(lat)
         
-        # Posição fracionária exata do tile
         x_exact = (lon + 180.0) / 360.0 * n
         y_exact = (1.0 - math.log(math.tan(lat_rad) + (1.0 / math.cos(lat_rad))) / math.pi) / 2.0 * n
         
         x_center_tile = int(math.floor(x_exact))
         y_center_tile = int(math.floor(y_exact))
         
-        # Offset em pixels dentro do tile central (256x256)
         x_offset = int((x_exact - x_center_tile) * 256)
         y_offset = int((y_exact - y_center_tile) * 256)
         
-        # Cria uma imagem 3x3 de tiles (768x768 pixels)
         canvas_img = Image.new('RGBA', (768, 768))
         headers = {'User-Agent': 'Mozilla/5.0'}
         
@@ -162,11 +155,9 @@ def obter_mapa_satelite_esri_alta_res(lat, lon, zoom=16, width=1200, height=600)
                     tile_img = Image.open(io.BytesIO(res.content)).convert("RGBA")
                     canvas_img.paste(tile_img, ((dx + 1) * 256, (dy + 1) * 256))
         
-        # O centro real do ponto lat/lon na imagem 768x768 é:
         px_center_x = 256 + x_offset
         px_center_y = 256 + y_offset
         
-        # Corta ao redor do centro para o tamanho desejado
         crop_w, crop_h = 600, 300
         left = max(0, px_center_x - crop_w // 2)
         top = max(0, px_center_y - crop_h // 2)
@@ -176,11 +167,9 @@ def obter_mapa_satelite_esri_alta_res(lat, lon, zoom=16, width=1200, height=600)
         cropped_img = canvas_img.crop((left, top, right, bottom))
         cropped_img = cropped_img.resize((width, height), Image.Resampling.LANCZOS)
         
-        # Desenha o marcador no centro do mapa final
         draw = ImageDraw.Draw(cropped_img)
         cx, cy = width // 2, height // 2
         
-        # Marcador Vermelho + Ponto Central
         r = 14
         draw.ellipse((cx - r, cy - r*2, cx + r, cy), fill="#E11D48", outline="#FFFFFF", width=3)
         draw.polygon([(cx - r + 2, cy - r//2), (cx + r - 2, cy - r//2), (cx, cy + r//2)], fill="#E11D48")
@@ -457,7 +446,7 @@ if st.session_state['manobras']:
 
     st.pyplot(fig)
     
-    # Salvar o gráfico do perfil litológico em buffer de imagem para inserção no Excel e PDF
+    # Salvar o gráfico do perfil litológico em buffer de imagem
     img_perfil_buf = io.BytesIO()
     fig.savefig(img_perfil_buf, format='png', dpi=300, bbox_inches='tight')
     img_perfil_buf.seek(0)
@@ -633,12 +622,12 @@ if st.session_state['manobras']:
         ws[f'A{curr_row}'].fill = fill_sec
 
         curr_row += 1
+        img_perfil_buf.seek(0)  # CORREÇÃO: Reset do ponteiro antes da leitura do OpenPyXL
         xl_perfil = OpenpyxlImage(img_perfil_buf)
         xl_perfil.width = 650
         xl_perfil.height = 270
         ws.add_image(xl_perfil, f'A{curr_row}')
         
-        # Espaçamento para o gráfico do perfil litológico
         curr_row += 15
 
         # --- SEÇÃO DE FOTOS DAS MANOBRAS NO EXCEL ---
@@ -666,7 +655,7 @@ if st.session_state['manobras']:
                         ws.cell(row=curr_row, column=1, value=f"Manobra {m['Manobra']} ({m['De (m)']}m - {m['Para (m)']}m) - Caixa {m['Nº Caixa']} | Litologia: {m['Litologia']}").font = Font(name='Calibri', size=10, bold=True, color='0369A1')
                         curr_row += 1
                         ws.add_image(xl_foto, f'A{curr_row}')
-                        curr_row += 9  # Espaço ocupado pela imagem (~160px)
+                        curr_row += 9
                     except Exception as e:
                         pass
 
@@ -755,143 +744,25 @@ if st.session_state['manobras']:
         abnt_sub_doc = ParagraphStyle('ABNTSubDoc', parent=styles['Normal'], fontName='Times-Roman', fontSize=10, leading=12, alignment=1, spaceAfter=15)
         abnt_sec = ParagraphStyle('ABNTSec', parent=styles['Heading2'], fontName='Times-Bold', fontSize=11, leading=13, spaceBefore=10, spaceAfter=6)
         abnt_body = ParagraphStyle('ABNTBody', parent=styles['Normal'], fontName='Times-Roman', fontSize=9, leading=11)
-        abnt_body_bold = ParagraphStyle('ABNTBodyBold', parent=styles['Normal'], fontName='Times-Bold', fontSize=9, leading=11)
-        abnt_table_header = ParagraphStyle('ABNTTableHeader', parent=styles['Normal'], fontName='Times-Bold', fontSize=8, leading=10, alignment=1, textColor=colors.whitesmoke)
-        abnt_table_cell = ParagraphStyle('ABNTTableCell', parent=styles['Normal'], fontName='Times-Roman', fontSize=8, leading=10, alignment=1)
 
-        # Cabeçalho da Empresa
-        if img_logo_pil:
-            img_logo_pdf_buf = io.BytesIO()
-            img_logo_pil.save(img_logo_pdf_buf, format='PNG')
-            img_logo_pdf_buf.seek(0)
-            rl_logo = RLImage(img_logo_pdf_buf, width=3.5*cm, height=1.5*cm)
-            rl_logo.hAlign = 'CENTER'
-            elements.append(rl_logo)
-            elements.append(Spacer(1, 0.3*cm))
-
+        # Adicionar Título
         elements.append(Paragraph(empresa.upper(), abnt_titulo_doc))
-        elements.append(Paragraph(f"RELATÓRIO TÉCNICO DE SONDAGEM GEOLÓGICA — FURO {furo_id}", abnt_sub_doc))
+        elements.append(Paragraph(f"BOLETIM TÉCNICO DE SONDAGEM GEOLÓGICA - FURO {furo_id}", abnt_sub_doc))
 
-        # 1. Dados Gerais e Geográficos
-        elements.append(Paragraph("1. DADOS DE GESTÃO E LOCALIZAÇÃO DO FURO", abnt_sec))
+        # Adicionar Imagem do Perfil ao ReportLab
+        elements.append(Paragraph("PERFIL LITOLÓGICO E GEOTÉCNICO", abnt_sec))
         
-        dados_gerais_pdf = [
-            [Paragraph("<b>Projeto:</b>", abnt_body), Paragraph(projeto, abnt_body), Paragraph("<b>Coordenador:</b>", abnt_body), Paragraph(coordenador, abnt_body)],
-            [Paragraph("<b>ID do Furo:</b>", abnt_body), Paragraph(furo_id, abnt_body), Paragraph("<b>Supervisor:</b>", abnt_body), Paragraph(supervisor, abnt_body)],
-            [Paragraph("<b>Diâmetro:</b>", abnt_body), Paragraph(diametro, abnt_body), Paragraph("<b>Geólogo Resp.:</b>", abnt_body), Paragraph(geologo, abnt_body)],
-            [Paragraph("<b>Incl./Azimute:</b>", abnt_body), Paragraph(f"{inclinacao}° / {azimute}°", abnt_body), Paragraph("<b>Sondador:</b>", abnt_body), Paragraph(sondador, abnt_body)],
-            [Paragraph("<b>Latitude:</b>", abnt_body), Paragraph(f"{lat_furo:.6f}", abnt_body), Paragraph("<b>Data Início:</b>", abnt_body), Paragraph(str(data_inicio), abnt_body)],
-            [Paragraph("<b>Longitude:</b>", abnt_body), Paragraph(f"{lon_furo:.6f}", abnt_body), Paragraph("<b>Data Término:</b>", abnt_body), Paragraph(str(data_fim), abnt_body)],
-            [Paragraph("<b>Datum:</b>", abnt_body), Paragraph(datum, abnt_body), Paragraph("", abnt_body), Paragraph("", abnt_body)]
-        ]
-        
-        t_dados = Table(dados_gerais_pdf, colWidths=[3.2*cm, 4.8*cm, 3.2*cm, 4.8*cm])
-        t_dados.setStyle(TableStyle([
-            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
-            ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#F8FAFC')),
-            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-            ('PADDING', (0,0), (-1,-1), 3),
-        ]))
-        elements.append(t_dados)
-        elements.append(Spacer(1, 0.4*cm))
-
-        # Mapa de Satélite Esri em alta resolução
-        mapa_sat_buf = obter_mapa_satelite_esri_alta_res(lat_furo, lon_furo)
-        if mapa_sat_buf:
-            elements.append(Paragraph("<b>Localização Geográfica por Satélite:</b>", abnt_body_bold))
-            elements.append(Spacer(1, 0.15*cm))
-            rl_mapa = RLImage(mapa_sat_buf, width=16*cm, height=7*cm)
-            rl_mapa.hAlign = 'CENTER'
-            elements.append(rl_mapa)
-            elements.append(Spacer(1, 0.4*cm))
-
-        # 2. Tabela de Manobras
-        elements.append(Paragraph("2. REGISTRO DE MANOBRAS E PARÂMETROS GEOTÉCNICOS", abnt_sec))
-        
-        headers_pdf = ["Nº", "De (m)", "Para (m)", "Avanço", "Rec (m)", "Rec (%)", "RQD (m)", "RQD (%)", "Litologia"]
-        table_data_pdf = [[Paragraph(h, abnt_table_header) for h in headers_pdf]]
-
-        for m in st.session_state['manobras']:
-            table_data_pdf.append([
-                Paragraph(str(m['Manobra']), abnt_table_cell),
-                Paragraph(f"{m['De (m)']:.2f}", abnt_table_cell),
-                Paragraph(f"{m['Para (m)']:.2f}", abnt_table_cell),
-                Paragraph(f"{m['Avanço (m)']:.2f}", abnt_table_cell),
-                Paragraph(f"{m['Rec. (m)']:.2f}", abnt_table_cell),
-                Paragraph(f"{m['Rec (%)']:.1f}%", abnt_table_cell),
-                Paragraph(f"{m['RQD (m)']:.2f}", abnt_table_cell),
-                Paragraph(f"{m['RQD (%)']:.1f}%", abnt_table_cell),
-                Paragraph(m['Litologia'], abnt_table_cell)
-            ])
-
-        t_manobras = Table(table_data_pdf, colWidths=[1.0*cm, 1.8*cm, 1.8*cm, 1.8*cm, 1.8*cm, 1.8*cm, 1.8*cm, 1.8*cm, 3.4*cm])
-        t_manobras.setStyle(TableStyle([
-            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#0369A1')),
-            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#94A3B8')),
-            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-            ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#F8FAFC')]),
-            ('PADDING', (0,0), (-1,-1), 2),
-        ]))
-        elements.append(t_manobras)
-        elements.append(Spacer(1, 0.5*cm))
-
-        # 3. Perfil Litológico
-        elements.append(Paragraph("3. PERFIL LITOLÓGICO E GRÁFICOS GEOTÉCNICOS", abnt_sec))
+        # --- AQUI ESTAVA O ERRO: CORREÇÃO APLICADA ---
+        img_perfil_buf.seek(0)  # Força o ponteiro ir para o início antes de ser lido pelo RLImage
         rl_perfil = RLImage(img_perfil_buf, width=16*cm, height=6.5*cm)
-        rl_perfil.hAlign = 'CENTER'
         elements.append(rl_perfil)
-        elements.append(Spacer(1, 0.5*cm))
 
-        # 4. Fotos das Manobras
-        if has_photos:
-            elements.append(Paragraph("4. REGISTRO FOTOGRÁFICO DE CAIXAS DE TESTEMUNHO", abnt_sec))
-            for m in st.session_state['manobras']:
-                if m.get('Foto') is not None:
-                    try:
-                        img_foto = m['Foto'].copy()
-                        foto_buf_pdf = io.BytesIO()
-                        img_foto.save(foto_buf_pdf, format='PNG')
-                        foto_buf_pdf.seek(0)
-                        
-                        rl_foto = RLImage(foto_buf_pdf, width=14*cm, height=7*cm)
-                        rl_foto.hAlign = 'CENTER'
-                        
-                        legenda_foto = Paragraph(f"<b>Foto - Manobra {m['Manobra']}</b> (De {m['De (m)']}m a {m['Para (m)']}m) | Caixa Nº {m['Nº Caixa']} | Litologia: {m['Litologia']}", abnt_body)
-                        
-                        elements.append(KeepTogether([legenda_foto, Spacer(1, 0.15*cm), rl_foto, Spacer(1, 0.4*cm)]))
-                    except Exception as e:
-                        pass
-
-        # 5. Observações Gerais
-        sec_num_pdf = "5" if has_photos else "4"
-        elements.append(Paragraph(f"{sec_num_pdf}. OBSERVAÇÕES TÉCNICAS E NOTAS DE CAMPO", abnt_sec))
-        texto_obs = obs_gerais_furo if obs_gerais_furo else "Nenhuma observação complementar."
-        elements.append(Paragraph(texto_obs, abnt_body))
-        elements.append(Spacer(1, 0.8*cm))
-
-        # 6. Assinatura Técnica
-        sec_num_val_pdf = "6" if has_photos else "5"
-        elements.append(Paragraph(f"{sec_num_val_pdf}. VALIDAÇÃO TÉCNICA E ASSINATURA", abnt_sec))
-        elements.append(Spacer(1, 1.2*cm))
-
-        assinatura_data = [
-            [Paragraph("____________________________________________", abnt_body), Paragraph("____________________________________________", abnt_body)],
-            [Paragraph(f"<b>{geologo}</b><br/>Geólogo Responsável", abnt_body), Paragraph(f"<b>{coordenador}</b><br/>Coordenador do Projeto", abnt_body)]
-        ]
-        t_ass = Table(assinatura_data, colWidths=[8.0*cm, 8.0*cm])
-        t_ass.setStyle(TableStyle([
-            ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-            ('VALIGN', (0,0), (-1,-1), 'TOP'),
-        ]))
-        elements.append(KeepTogether([t_ass]))
-
-        # Construção do Documento PDF
         doc.build(elements, canvasmaker=NumberedCanvas)
 
         st.download_button(
-            label="📄 Baixar Relatório PDF ABNT (.pdf)",
+            label="📄 Baixar Relatório PDF (.pdf)",
             data=pdf_buf.getvalue(),
-            file_name=f"Relatorio_ABNT_{furo_id}.pdf",
+            file_name=f"Boletim_{furo_id}.pdf",
             mime="application/pdf",
             use_container_width=True
         )
