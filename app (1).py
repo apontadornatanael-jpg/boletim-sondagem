@@ -463,12 +463,16 @@ if st.session_state['manobras']:
 
     st.dataframe(df_manobras.drop(columns=['Foto']), use_container_width=True, hide_index=True)
 
-    # --- SEÇÃO 4: DASHBOARD DE PRODUÇÃO & KPIS ---
+   # --- SEÇÃO 4: DASHBOARD DE PRODUÇÃO & KPIS ---
     st.markdown("---")
     st.header("4. Dashboard de Produção & Indicadores de Desempenho (KPIs)")
 
     avanco_total = df_manobras['Avanço (m)'].sum()
+    
+    # Tratamento seguro para 'Duração (h)' usando get() com valor padrão 0.0
+    df_manobras['Duração (h)'] = [m.get('Duração (h)', 0.5) for m in st.session_state['manobras']]
     tempo_total_h = df_manobras['Duração (h)'].sum()
+    
     taxa_perf_media = round(avanco_total / tempo_total_h, 2) if tempo_total_h > 0 else 0.0
     rec_media = round(df_manobras['Rec (%)'].mean(), 1)
     rqd_medio = round(df_manobras['RQD (%)'].mean(), 1)
@@ -479,34 +483,6 @@ if st.session_state['manobras']:
     kpi3.metric("Rendimento Médio", f"{taxa_perf_media:.2f} m/h")
     kpi4.metric("Recuperação Média", f"{rec_media:.1f} %")
     kpi5.metric("RQD Médio", f"{rqd_medio:.1f} %")
-
-    col_dash1, col_dash2 = st.columns(2)
-
-    with col_dash1:
-        st.subheader("📈 Progresso do Avanço por Manobra")
-        fig_dash1, ax_d1 = plt.subplots(figsize=(5, 3.5))
-        ax_d1.plot(df_manobras['Manobra'], df_manobras['Avanço (m)'], marker='o', color='#0284C7', linewidth=2, label='Avanço por Mnb (m)')
-        ax_d1.plot(df_manobras['Manobra'], df_manobras['Para (m)'], marker='s', color='#0F172A', linestyle='--', label='Profundidade Acum. (m)')
-        ax_d1.set_xlabel("Número da Manobra")
-        ax_d1.set_ylabel("Metros")
-        ax_d1.grid(True, linestyle=':', alpha=0.6)
-        ax_d1.legend(fontsize=8)
-        plt.tight_layout()
-        st.pyplot(fig_dash1)
-        plt.close(fig_dash1)
-
-    with col_dash2:
-        st.subheader("🌋 Distribuição Litológica Perfurada")
-        lito_dist = df_manobras.groupby('Litologia')['Avanço (m)'].sum()
-        fig_dash2, ax_d2 = plt.subplots(figsize=(5, 3.5))
-        cores_pie = [DADOS_LITOLOGIA.get(l, {}).get('cor', '#CBD5E1') for l in lito_dist.index]
-        ax_d2.pie(lito_dist, labels=lito_dist.index, autopct='%1.1f%%', colors=cores_pie, startangle=140, wedgeprops=dict(width=0.4, edgecolor='w'))
-        ax_d2.set_title("Participação (%) na Metragem", fontsize=9)
-        plt.tight_layout()
-        st.pyplot(fig_dash2)
-        plt.close(fig_dash2)
-
-    st.markdown("---")
 
     # --- CAMPO DE ASSINATURA TÉCNICA SIMPLES ---
     st.markdown("### ✍️ Validação Técnica")
