@@ -421,7 +421,7 @@ obs_gerais_furo = st.text_area(
 if st.session_state['manobras']:
     df_manobras = pd.DataFrame(st.session_state['manobras'])
 
-    # GERAÇÃO DO GRÁFICO
+    # GERAÇÃO DO GRÁFICO DO PERFIL LITOLÓGICO E GEOTÉCNICO
     plt.rcParams['hatch.linewidth'] = 1.2
     plt.rcParams['hatch.color'] = '#333333'
     fig, (ax_lito, ax_rqd, ax_rec) = plt.subplots(1, 3, figsize=(11, 4.5), sharey=True, gridspec_kw={'width_ratios': [1.3, 2, 2]})
@@ -456,17 +456,23 @@ if st.session_state['manobras']:
     plt.tight_layout()
 
     st.pyplot(fig)
+    
+    # Salvar o gráfico do perfil litológico em buffer de imagem para inserção no Excel e PDF
+    img_perfil_buf = io.BytesIO()
+    fig.savefig(img_perfil_buf, format='png', dpi=300, bbox_inches='tight')
+    img_perfil_buf.seek(0)
+    
     plt.close(fig)
 
     st.dataframe(df_manobras.drop(columns=['Foto']), use_container_width=True, hide_index=True)
 
-    # --- CAMPO DE ASSINATURA TÉCNICA SIMPLES (LINHA DE ASSINATURA) ---
+    # --- CAMPO DE ASSINATURA TÉCNICA SIMPLES ---
     st.markdown("### ✍️ Validação Técnica")
     st.info(f"O documento gerado conterá um campo para assinatura física/manual do **{geologo}**.")
 
     col_exp1, col_exp2 = st.columns(2)
 
-    # --- EXPORTAÇÃO EXCEL ---
+    # --- EXPORTAÇÃO EXCEL CORRIGIDA ---
     with col_exp1:
         buffer_xls = io.BytesIO()
         wb = openpyxl.Workbook()
@@ -619,10 +625,56 @@ if st.session_state['manobras']:
                 cell.value = "-"
                 cell.alignment = align_center
 
-        # --- OBSERVAÇÕES GERAIS NO EXCEL ---
+        # --- SEÇÃO DO PERFIL LITOLÓGICO NO EXCEL ---
         curr_row += 2
         ws.merge_cells(f'A{curr_row}:L{curr_row}')
-        ws[f'A{curr_row}'] = "3. OBSERVAÇÕES TÉCNICAS E NOTAS DE CAMPO"
+        ws[f'A{curr_row}'] = "3. PERFIL LITOLÓGICO E GRÁFICOS GEOTÉCNICOS"
+        ws[f'A{curr_row}'].font = font_sec
+        ws[f'A{curr_row}'].fill = fill_sec
+
+        curr_row += 1
+        xl_perfil = OpenpyxlImage(img_perfil_buf)
+        xl_perfil.width = 650
+        xl_perfil.height = 270
+        ws.add_image(xl_perfil, f'A{curr_row}')
+        
+        # Espaçamento para o gráfico do perfil litológico
+        curr_row += 15
+
+        # --- SEÇÃO DE FOTOS DAS MANOBRAS NO EXCEL ---
+        has_photos = any(m.get('Foto') is not None for m in st.session_state['manobras'])
+        if has_photos:
+            curr_row += 1
+            ws.merge_cells(f'A{curr_row}:L{curr_row}')
+            ws[f'A{curr_row}'] = "4. REGISTRO FOTOGRÁFICO DAS CAIXAS / TESTEMUNHOS"
+            ws[f'A{curr_row}'].font = font_sec
+            ws[f'A{curr_row}'].fill = fill_sec
+            curr_row += 1
+
+            for m in st.session_state['manobras']:
+                if m.get('Foto') is not None:
+                    try:
+                        img_foto = m['Foto'].copy()
+                        img_buf = io.BytesIO()
+                        img_foto.save(img_buf, format='PNG')
+                        img_buf.seek(0)
+                        
+                        xl_foto = OpenpyxlImage(img_buf)
+                        xl_foto.width = 280
+                        xl_foto.height = 160
+                        
+                        ws.cell(row=curr_row, column=1, value=f"Manobra {m['Manobra']} ({m['De (m)']}m - {m['Para (m)']}m) - Caixa {m['Nº Caixa']} | Litologia: {m['Litologia']}").font = Font(name='Calibri', size=10, bold=True, color='0369A1')
+                        curr_row += 1
+                        ws.add_image(xl_foto, f'A{curr_row}')
+                        curr_row += 9  # Espaço ocupado pela imagem (~160px)
+                    except Exception as e:
+                        pass
+
+        # --- OBSERVAÇÕES GERAIS NO EXCEL ---
+        curr_row += 1
+        ws.merge_cells(f'A{curr_row}:L{curr_row}')
+        sec_num = "5" if has_photos else "4"
+        ws[f'A{curr_row}'] = f"{sec_num}. OBSERVAÇÕES TÉCNICAS E NOTAS DE CAMPO"
         ws[f'A{curr_row}'].font = font_sec
         ws[f'A{curr_row}'].fill = fill_sec
 
@@ -632,10 +684,11 @@ if st.session_state['manobras']:
         ws[f'A{curr_row}'].font = font_body
         ws[f'A{curr_row}'].alignment = Alignment(horizontal='left', vertical='top', wrap_text=True)
 
-        # --- LINHA ÚNICA DE ASSINATURA NO EXCEL ---
+        # --- VALIDAÇÃO TÉCNICA / ASSINATURA NO EXCEL ---
         curr_row += 4
         ws.merge_cells(f'A{curr_row}:E{curr_row}')
-        ws[f'A{curr_row}'] = "4. VALIDAÇÃO TÉCNICA"
+        sec_num_val = "6" if has_photos else "5"
+        ws[f'A{curr_row}'] = f"{sec_num_val}. VALIDAÇÃO TÉCNICA"
         ws[f'A{curr_row}'].font = font_sec
         ws[f'A{curr_row}'].fill = fill_sec
 
@@ -730,3 +783,113 @@ if st.session_state['manobras']:
             [Paragraph("<b>Início / Fim:</b>", abnt_text), Paragraph(f"{data_inicio} a {data_fim}", abnt_text), Paragraph("<b>Sondador:</b>", abnt_text), Paragraph(sondador, abnt_text)],
             [Paragraph("<b>Incl./Azimute:</b>", abnt_text), Paragraph(f"{inclinacao}° / {azimute}°", abnt_text), Paragraph("<b>Datum:</b>", abnt_text), Paragraph(datum, abnt_text)]
         ]
+        t_dados = Table(dados_furo_table, colWidths=[3.0*cm, 5.0*cm, 3.0*cm, 5.0*cm])
+        t_dados.setStyle(TableStyle([
+            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+            ('TOPPADDING', (0,0), (-1,-1), 4),
+        ]))
+        elements.append(t_dados)
+        elements.append(Spacer(1, 12))
+
+        # Tabela de Manobras
+        elements.append(Paragraph("<b>2. REGISTRO DE MANOBRAS E PARÂMETROS GEOTÉCNICOS</b>", abnt_sec))
+        headers_pdf = ["Mnb", "De-Até (m)", "Av. (m)", "Rec. (m)", "Rec %", "RQD %", "Caixa", "Litologia", "Alteração"]
+        table_data = [[Paragraph(f"<b>{h}</b>", abnt_th) for h in headers_pdf]]
+
+        for m in st.session_state['manobras']:
+            row = [
+                Paragraph(str(m['Manobra']), abnt_td),
+                Paragraph(f"{m['De (m)']:.2f} - {m['Para (m)']:.2f}", abnt_td),
+                Paragraph(f"{m['Avanço (m)']:.2f}", abnt_td),
+                Paragraph(f"{m['Rec. (m)']:.2f}", abnt_td),
+                Paragraph(f"{m['Rec (%)']:.1f}%", abnt_td),
+                Paragraph(f"{m['RQD (%)']:.1f}%", abnt_td),
+                Paragraph(str(m['Nº Caixa']), abnt_td),
+                Paragraph(m['Litologia'], abnt_td),
+                Paragraph(m['Alteração'], abnt_td),
+            ]
+            table_data.append(row)
+
+        t_manobras = Table(table_data, colWidths=[1.0*cm, 2.5*cm, 1.5*cm, 1.5*cm, 1.5*cm, 1.5*cm, 1.2*cm, 2.8*cm, 2.5*cm])
+        t_manobras.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#F1F5F9')),
+            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
+            ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 3),
+            ('TOPPADDING', (0,0), (-1,-1), 3),
+        ]))
+        elements.append(t_manobras)
+        elements.append(Spacer(1, 12))
+
+        # Perfil Litológico no PDF
+        elements.append(Paragraph("<b>3. PERFIL LITOLÓGICO E GRÁFICOS GEOTÉCNICOS</b>", abnt_sec))
+        rl_perfil = RLImage(img_perfil_buf, width=16.0*cm, height=6.5*cm)
+        elements.append(rl_perfil)
+        elements.append(Spacer(1, 12))
+
+        # Registro Fotográfico no PDF
+        if has_photos:
+            elements.append(Paragraph("<b>4. REGISTRO FOTOGRÁFICO DAS CAIXAS / TESTEMUNHOS</b>", abnt_sec))
+            fotos_rows = []
+            row_curr = []
+            for m in st.session_state['manobras']:
+                if m.get('Foto') is not None:
+                    try:
+                        img_foto = m['Foto'].copy()
+                        img_buf = io.BytesIO()
+                        img_foto.save(img_buf, format='PNG')
+                        img_buf.seek(0)
+                        
+                        rl_f = RLImage(img_buf, width=7.5*cm, height=4.5*cm)
+                        cap_text = Paragraph(f"<b>Manobra {m['Manobra']}</b> ({m['De (m)']}m - {m['Para (m)']}m)<br/>Caixa {m['Nº Caixa']} | {m['Litologia']}", abnt_td)
+                        
+                        cell_content = [rl_f, Spacer(1, 2), cap_text]
+                        row_curr.append(cell_content)
+                        
+                        if len(row_curr) == 2:
+                            fotos_rows.append(row_curr)
+                            row_curr = []
+                    except Exception as e:
+                        pass
+            if row_curr:
+                if len(row_curr) == 1:
+                    row_curr.append("")
+                fotos_rows.append(row_curr)
+
+            if fotos_rows:
+                t_fotos = Table(fotos_rows, colWidths=[8.0*cm, 8.0*cm])
+                t_fotos.setStyle(TableStyle([
+                    ('VALIGN', (0,0), (-1,-1), 'TOP'),
+                    ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+                    ('BOTTOMPADDING', (0,0), (-1,-1), 6),
+                ]))
+                elements.append(t_fotos)
+                elements.append(Spacer(1, 12))
+
+        # Observações Gerais no PDF
+        sec_pdf_obs = "5" if has_photos else "4"
+        elements.append(Paragraph(f"<b>{sec_pdf_obs}. OBSERVAÇÕES TÉCNICAS E NOTAS DE CAMPO</b>", abnt_sec))
+        txt_obs = obs_gerais_furo if obs_gerais_furo else "Nenhuma observação complementar."
+        elements.append(Paragraph(txt_obs, abnt_text))
+        elements.append(Spacer(1, 20))
+
+        # Assinatura
+        sec_pdf_ass = "6" if has_photos else "5"
+        elements.append(Paragraph(f"<b>{sec_pdf_ass}. VALIDAÇÃO TÉCNICA</b>", abnt_sec))
+        elements.append(Spacer(1, 15))
+        ass_table = Table([[Paragraph("_________________________________________<br/><b>" + geologo + "</b><br/>Geólogo Responsável", abnt_td)]], colWidths=[16.0*cm])
+        ass_table.setStyle(TableStyle([('ALIGN', (0,0), (-1,-1), 'CENTER')]))
+        elements.append(KeepTogether([ass_table]))
+
+        doc.build(elements, canvasmaker=NumberedCanvas)
+        
+        st.download_button(
+            label="📄 Baixar Relatório PDF (ABNT)",
+            data=pdf_buf.getvalue(),
+            file_name=f"Relatorio_{furo_id}.pdf",
+            mime="application/pdf",
+            use_container_width=True
+        )
