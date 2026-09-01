@@ -463,26 +463,117 @@ if st.session_state['manobras']:
 
     st.dataframe(df_manobras.drop(columns=['Foto']), use_container_width=True, hide_index=True)
 
-   # --- SEÇÃO 4: DASHBOARD DE PRODUÇÃO & KPIS ---
-    st.markdown("---")
-    st.header("4. Dashboard de Produção & Indicadores de Desempenho (KPIs)")
-
-    avanco_total = df_manobras['Avanço (m)'].sum()
+   # --- ESTILIZAÇÃO CSS: DASHBOARD ILUMINADO (DARK NEON / GLASS) ---
+st.markdown("""
+    <style>
+    /* Fundo da aplicação e containers com brilho */
+    .stApp {
+        background-color: #0F172A;
+    }
     
-    # Tratamento seguro para 'Duração (h)' usando get() com valor padrão 0.0
-    df_manobras['Duração (h)'] = [m.get('Duração (h)', 0.5) for m in st.session_state['manobras']]
-    tempo_total_h = df_manobras['Duração (h)'].sum()
+    /* Cards do Dashboard com efeito Glassmorphism & Brilho Neon */
+    div[data-testid="stMetric"] {
+        background: rgba(30, 41, 59, 0.7) !important;
+        border: 1px solid rgba(56, 189, 248, 0.3) !important;
+        border-radius: 16px !important;
+        padding: 16px !important;
+        box-shadow: 0 0 15px rgba(56, 189, 248, 0.2), inset 0 0 10px rgba(56, 189, 248, 0.1) !important;
+        backdrop-filter: blur(8px);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
     
-    taxa_perf_media = round(avanco_total / tempo_total_h, 2) if tempo_total_h > 0 else 0.0
-    rec_media = round(df_manobras['Rec (%)'].mean(), 1)
-    rqd_medio = round(df_manobras['RQD (%)'].mean(), 1)
+    div[data-testid="stMetric"]:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 0 25px rgba(56, 189, 248, 0.5), inset 0 0 15px rgba(56, 189, 248, 0.2) !important;
+    }
 
-    kpi1, kpi2, kpi3, kpi4, kpi5 = st.columns(5)
-    kpi1.metric("Avanço Total Acumulado", f"{avanco_total:.2f} m")
-    kpi2.metric("Horas de Operação", f"{tempo_total_h:.2f} h")
-    kpi3.metric("Rendimento Médio", f"{taxa_perf_media:.2f} m/h")
-    kpi4.metric("Recuperação Média", f"{rec_media:.1f} %")
-    kpi5.metric("RQD Médio", f"{rqd_medio:.1f} %")
+    /* Rótulos e Valores dos KPIs Iluminados */
+    div[data-testid="stMetricLabel"] > label {
+        color: #94A3B8 !important;
+        font-size: 0.9rem !important;
+        font-weight: 600 !important;
+    }
+    
+    div[data-testid="stMetricValue"] > div {
+        color: #38BDF8 !important;
+        text-shadow: 0 0 10px rgba(56, 189, 248, 0.6);
+        font-weight: 800 !important;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+
+# --- SEÇÃO 4: DASHBOARD DE PRODUÇÃO ILUMINADO ---
+st.markdown("---")
+st.header("⚡ 4. Dashboard de Produção & Indicadores (Neon Mode)")
+
+# Tratamento de dados
+avanco_total = df_manobras['Avanço (m)'].sum()
+df_manobras['Duração (h)'] = [m.get('Duração (h)', 0.5) for m in st.session_state['manobras']]
+tempo_total_h = df_manobras['Duração (h)'].sum()
+
+taxa_perf_media = round(avanco_total / tempo_total_h, 2) if tempo_total_h > 0 else 0.0
+rec_media = round(df_manobras['Rec (%)'].mean(), 1)
+rqd_medio = round(df_manobras['RQD (%)'].mean(), 1)
+
+# Cards Iluminados (KPIs)
+kpi1, kpi2, kpi3, kpi4, kpi5 = st.columns(5)
+kpi1.metric("Avanço Acumulado", f"{avanco_total:.2f} m")
+kpi2.metric("Horas de Operação", f"{tempo_total_h:.2f} h")
+kpi3.metric("Rendimento Médio", f"{taxa_perf_media:.2f} m/h")
+kpi4.metric("Recuperação Média", f"{rec_media:.1f} %")
+kpi5.metric("RQD Médio", f"{rqd_medio:.1f} %")
+
+st.markdown("<br>", unsafe_allow_html=True)
+
+# Configuração Dark/Neon para Matplotlib
+plt.style.use('dark_background')
+
+col_dash1, col_dash2 = st.columns(2)
+
+with col_dash1:
+    st.subheader("📈 Progresso do Avanço")
+    fig_dash1, ax_d1 = plt.subplots(figsize=(5, 3.5), facecolor='#0F172A')
+    ax_d1.set_facecolor('#1E293B')
+    
+    # Linhas com efeito Neon (dupla renderização para glow)
+    ax_d1.plot(df_manobras['Manobra'], df_manobras['Avanço (m)'], color='#38BDF8', linewidth=5, alpha=0.3)
+    ax_d1.plot(df_manobras['Manobra'], df_manobras['Avanço (m)'], marker='o', color='#38BDF8', linewidth=2, label='Avanço (m)')
+    
+    ax_d1.plot(df_manobras['Manobra'], df_manobras['Para (m)'], color='#F43F5E', linewidth=5, alpha=0.3)
+    ax_d1.plot(df_manobras['Manobra'], df_manobras['Para (m)'], marker='s', color='#F43F5E', linestyle='--', linewidth=2, label='Profundidade (m)')
+    
+    ax_d1.set_xlabel("Manobra", color='#94A3B8')
+    ax_d1.set_ylabel("Metros", color='#94A3B8')
+    ax_d1.grid(True, color='#334155', linestyle=':', alpha=0.6)
+    ax_d1.legend(facecolor='#1E293B', edgecolor='#38BDF8', labelcolor='white')
+    plt.tight_layout()
+    st.pyplot(fig_dash1)
+    plt.close(fig_dash1)
+
+with col_dash2:
+    st.subheader("🌋 Distribuição Litológica")
+    lito_dist = df_manobras.groupby('Litologia')['Avanço (m)'].sum()
+    fig_dash2, ax_d2 = plt.subplots(figsize=(5, 3.5), facecolor='#0F172A')
+    ax_d2.set_facecolor('#1E293B')
+    
+    cores_neon = ['#38BDF8', '#F43F5E', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899']
+    wedges, texts, autotexts = ax_d2.pie(
+        lito_dist, 
+        labels=lito_dist.index, 
+        autopct='%1.1f%%', 
+        colors=cores_neon[:len(lito_dist)],
+        startangle=140, 
+        wedgeprops=dict(width=0.4, edgecolor='#0F172A', linewidth=2)
+    )
+    
+    for text in texts: text.set_color('#E2E8F0')
+    for autotext in autotexts: autotext.set_color('#FFFFFF')
+    
+    ax_d2.set_title("Participação na Metragem", color='#94A3B8', fontsize=9)
+    plt.tight_layout()
+    st.pyplot(fig_dash2)
+    plt.close(fig_dash2)
 
     # --- CAMPO DE ASSINATURA TÉCNICA SIMPLES ---
     st.markdown("### ✍️ Validação Técnica")
