@@ -1,13 +1,10 @@
 streamlit
 pandas
 matplotlib
-openpyxl
+Pillow
+requests
 folium
 streamlit-folium
+openpyxl
 reportlab
-Pillow
-streamlit-drawable-canvas
-streamlit-javascript
-streamlit-geolocator
-requests
 streamlit-js-eval
