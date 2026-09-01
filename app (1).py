@@ -11,7 +11,7 @@ import requests
 
 import folium
 from streamlit_folium import st_folium
-from streamlit_geolocator import streamlit_geolocator
+from streamlit_js_eval import get_geolocation
 
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
@@ -210,11 +210,12 @@ with st.expander("🌐 Coordenadas GPS e Mapa do Furo", expanded=True):
         st.session_state['lon_gps'] = lon_padrao
 
     st.markdown("#### 🎯 Captura Automática de Localização")
-    location = streamlit_geolocator(component_key="get_user_gps")
-
-    if location and 'coords' in location and location['coords'] is not None:
-        nova_lat = round(location['coords']['latitude'], 6)
-        nova_lon = round(location['coords']['longitude'], 6)
+    
+    # Captura GPS via navegador usando JS Eval (Estável)
+    loc = get_geolocation()
+    if loc and 'coords' in loc:
+        nova_lat = round(loc['coords']['latitude'], 6)
+        nova_lon = round(loc['coords']['longitude'], 6)
         
         if st.session_state['lat_gps'] != nova_lat or st.session_state['lon_gps'] != nova_lon:
             st.session_state['lat_gps'] = nova_lat
@@ -228,33 +229,6 @@ with st.expander("🌐 Coordenadas GPS e Mapa do Furo", expanded=True):
         lon_furo = st.number_input("Longitude", value=st.session_state['lon_gps'], format="%.6f", key="input_lon")
         st.session_state['lat_gps'] = lat_furo
         st.session_state['lon_gps'] = lon_furo
-        
-    with col_geo2:
-        datum = st.text_input("Datum", value="SIRGAS 2000")
-        cota_z = st.number_input("Elevação Z (m)", value=0.0, step=0.5)
-    with col_geo3:
-        inclinacao = st.number_input("Inclinação (°)", value=-90.0, format="%.1f")
-        azimute = st.number_input("Azimute (°)", value=0.0, format="%.1f")
-    with col_geo4:
-        data_inicio = st.date_input("Data de Início", value=datetime.now())
-        data_fim = st.date_input("Data de Término", value=datetime.now())
-
-    st.markdown("---")
-    
-    m = folium.Map(location=[st.session_state['lat_gps'], st.session_state['lon_gps']], zoom_start=18, tiles=None)
-    folium.TileLayer(
-        tiles='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-        attr='Esri World Imagery', name='Satélite (Esri)', overlay=False
-    ).add_to(m)
-
-    folium.Marker(
-        [st.session_state['lat_gps'], st.session_state['lon_gps']], 
-        popup=f"Furo: {furo_id}", 
-        tooltip="Sua Localização Atual",
-        icon=folium.Icon(color='red', icon='info-sign')
-    ).add_to(m)
-
-    st_folium(m, width="100%", height=350, key="mapa_gps")
 
 # --- SEÇÃO 2: REGISTRO DE MANOBRAS ---
 st.header("2. Registro de Manobras e Fotos do Testemunho")
