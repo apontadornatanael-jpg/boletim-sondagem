@@ -11,6 +11,7 @@ import requests
 
 import folium
 from streamlit_folium import st_folium
+from streamlit_geolocator import streamlit_geolocator
 
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
@@ -198,7 +199,6 @@ with col_furo1:
     furo_id = st.text_input("ID do Furo", value="F-001")
 with col_furo2:
     diametro = st.selectbox("Diâmetro", ['HQ (63.5mm)', 'NQ (47.6mm)', 'BQ (36.5mm)', 'RC (Circ. Reversa)', 'Outro'])
-from streamlit_geolocator import streamlit_geolocator
 
 with st.expander("🌐 Coordenadas GPS e Mapa do Furo", expanded=True):
     lat_padrao = -6.515831
@@ -209,7 +209,6 @@ with st.expander("🌐 Coordenadas GPS e Mapa do Furo", expanded=True):
     if 'lon_gps' not in st.session_state:
         st.session_state['lon_gps'] = lon_padrao
 
-    # Botão visual e funcional de captura de GPS
     st.markdown("#### 🎯 Captura Automática de Localização")
     location = streamlit_geolocator(component_key="get_user_gps")
 
@@ -217,7 +216,6 @@ with st.expander("🌐 Coordenadas GPS e Mapa do Furo", expanded=True):
         nova_lat = round(location['coords']['latitude'], 6)
         nova_lon = round(location['coords']['longitude'], 6)
         
-        # Atualiza a sessão apenas se houver mudança para evitar rerenders infinitos
         if st.session_state['lat_gps'] != nova_lat or st.session_state['lon_gps'] != nova_lon:
             st.session_state['lat_gps'] = nova_lat
             st.session_state['lon_gps'] = nova_lon
@@ -226,7 +224,6 @@ with st.expander("🌐 Coordenadas GPS e Mapa do Furo", expanded=True):
 
     col_geo1, col_geo2, col_geo3, col_geo4 = st.columns(4)
     with col_geo1:
-        # Atribuição aos inputs conectados ao session_state com chaves explícitas
         lat_furo = st.number_input("Latitude", value=st.session_state['lat_gps'], format="%.6f", key="input_lat")
         lon_furo = st.number_input("Longitude", value=st.session_state['lon_gps'], format="%.6f", key="input_lon")
         st.session_state['lat_gps'] = lat_furo
@@ -244,7 +241,6 @@ with st.expander("🌐 Coordenadas GPS e Mapa do Furo", expanded=True):
 
     st.markdown("---")
     
-    # Renderização dinâmica do Mapa
     m = folium.Map(location=[st.session_state['lat_gps'], st.session_state['lon_gps']], zoom_start=18, tiles=None)
     folium.TileLayer(
         tiles='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
@@ -263,7 +259,6 @@ with st.expander("🌐 Coordenadas GPS e Mapa do Furo", expanded=True):
 # --- SEÇÃO 2: REGISTRO DE MANOBRAS ---
 st.header("2. Registro de Manobras e Fotos do Testemunho")
 
-# CALCULANDO VARIÁVEIS ANTES DO FORME PARA PREVENIR NAMEERROR
 if st.session_state['manobras']:
     prox_de = st.session_state['manobras'][-1]['Para (m)']
     rec_total_ant = st.session_state['manobras'][-1]['Rec. Total (m)']
@@ -455,7 +450,6 @@ if st.session_state['manobras']:
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # Gráficos do Dashboard com Tema Claro
     col_dash1, col_dash2 = st.columns(2)
     with col_dash1:
         st.subheader("📈 Progresso do Avanço")
@@ -663,7 +657,7 @@ if st.session_state['manobras']:
     with col_exp2:
         st.download_button(
             label="📄 Exportar Relatório em PDF",
-            data=buffer_xls, # Altere para o buffer do PDF se gerado via reportlab
+            data=buffer_xls,
             file_name=f"boletim_sondagem_{furo_id}.pdf",
             mime="application/pdf",
             use_container_width=True
