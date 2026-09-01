@@ -156,17 +156,148 @@ with st.sidebar:
 DADOS_LITOLOGIA = {
     'Solo / Cobertura':        {'cor': '#E5D3B3', 'hatch': '....'},
     'Siltito / Argilito':      {'cor': '#D2B48C', 'hatch': '----'},
-    'Quartzito':               {'cor': '#FFF8DC', 'hatch': '////'},
+    'Quartzito':                {'cor': '#FFF8DC', 'hatch': '////'},
     'Schisto / Filito':        {'cor': '#94A3B8', 'hatch': '\\\\\\\\'},
     'Gnaisse / Granito':       {'cor': '#E2E8F0', 'hatch': '++++'},
     'Basalto / Diabásio':      {'cor': '#475569', 'hatch': 'xxxx'},
     'Minério de Ferro / BIF':  {'cor': '#991B1B', 'hatch': '||||'},
     'Calcário / Dolomito':     {'cor': '#BAE6FD', 'hatch': 'OOOO'},
-    'Outro':                   {'cor': '#CBD5E1', 'hatch': ''}
+    'Outro':                    {'cor': '#CBD5E1', 'hatch': ''}
 }
 
 if 'manobras' not in st.session_state:
     st.session_state['manobras'] = []
+
+# --- GERADOR DE RELATÓRIO PDF (REPORTLAB) ---
+def gerar_pdf(df_manobras, img_perfil_bytes, obs_gerais):
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=portrait(A4),
+        leftMargin=1.5*cm, rightMargin=1.5*cm,
+        topMargin=1.5*cm, bottomMargin=1.5*cm
+    )
+    
+    elements = []
+    styles = getSampleStyleSheet()
+    
+    titulo_style = ParagraphStyle(
+        'TituloPDF',
+        parent=styles['Heading1'],
+        fontSize=14,
+        textColor=colors.HexColor('#0284C7'),
+        spaceAfter=10,
+        alignment=1
+    )
+    
+    sub_style = ParagraphStyle(
+        'SubPDF',
+        parent=styles['Heading2'],
+        fontSize=11,
+        textColor=colors.HexColor('#0F172A'),
+        spaceBefore=10,
+        spaceAfter=5
+    )
+
+    body_style = ParagraphStyle(
+        'BodyPDF',
+        parent=styles['Normal'],
+        fontSize=8,
+        leading=10
+    )
+
+    header_table_style = ParagraphStyle(
+        'HeaderTablePDF',
+        parent=styles['Normal'],
+        fontSize=8,
+        leading=10,
+        fontName='Helvetica-Bold',
+        textColor=colors.white,
+        alignment=1
+    )
+
+    # Titulo
+    elements.append(Paragraph(f"<b>BOLETIM TÉCNICO DE SONDAGEM - FURO {furo_id}</b>", titulo_style))
+    elements.append(Spacer(1, 0.2*cm))
+    
+    # Cabeçalho de Dados
+    dados_cabecalho = [
+        [Paragraph(f"<b>Empresa:</b> {empresa}", body_style), Paragraph(f"<b>Projeto:</b> {projeto}", body_style)],
+        [Paragraph(f"<b>Coordenador:</b> {coordenador}", body_style), Paragraph(f"<b>Supervisor:</b> {supervisor}", body_style)],
+        [Paragraph(f"<b>Geólogo:</b> {geologo}", body_style), Paragraph(f"<b>Sondador:</b> {sondador}", body_style)],
+        [Paragraph(f"<b>Coordenadas:</b> Lat {lat_furo:.6f} | Lon {lon_furo:.6f}", body_style), Paragraph(f"<b>Elevação (Z):</b> {cota_z} m", body_style)],
+        [Paragraph(f"<b>Inclinação / Azimute:</b> {inclinacao}° / {azimute}°", body_style), Paragraph(f"<b>Diâmetro / Datum:</b> {diametro} / {datum}", body_style)]
+    ]
+    t_header = Table(dados_cabecalho, colWidths=[9*cm, 9*cm])
+    t_header.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#F1F5F9')),
+        ('BOX', (0,0), (-1,-1), 1, colors.HexColor('#CBD5E1')),
+        ('INNERGRID', (0,0), (-1,-1), 0.5, colors.HexColor('#E2E8F0')),
+        ('PADDING', (0,0), (-1,-1), 4),
+    ]))
+    elements.append(t_header)
+    elements.append(Spacer(1, 0.4*cm))
+
+    # Imagem do Perfil Litológico
+    if img_perfil_bytes:
+        img_perfil_bytes.seek(0)
+        elements.append(Paragraph("<b>Perfil Estratigráfico e Indicadores</b>", sub_style))
+        img_rl = RLImage(img_perfil_bytes, width=17*cm, height=7*cm)
+        elements.append(img_rl)
+        elements.append(Spacer(1, 0.4*cm))
+
+    # Tabela de Manobras
+    elements.append(Paragraph("<b>Registro de Manobras</b>", sub_style))
+    
+    headers = ["Nº", "De", "Para", "Av.", "Rec.", "Rec %", "RQD %", "Litologia"]
+    table_data = [[Paragraph(f"<b>{h}</b>", header_table_style) for h in headers]]
+    
+    for _, r in df_manobras.iterrows():
+        table_data.append([
+            Paragraph(str(r['Manobra']), body_style),
+            Paragraph(f"{r['De (m)']:.2f}", body_style),
+            Paragraph(f"{r['Para (m)']:.2f}", body_style),
+            Paragraph(f"{r['Avanço (m)']:.2f}", body_style),
+            Paragraph(f"{r['Rec. (m)']:.2f}", body_style),
+            Paragraph(f"{r['Rec (%)']:.1f}%", body_style),
+            Paragraph(f"{r['RQD (%)']:.1f}%", body_style),
+            Paragraph(str(r['Litologia']), body_style)
+        ])
+    
+    t_manobras = Table(table_data, colWidths=[1*cm, 2*cm, 2*cm, 2*cm, 2*cm, 2*cm, 2*cm, 5*cm])
+    t_manobras.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#0284C7')),
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
+        ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#F8FAFC')]),
+        ('PADDING', (0,0), (-1,-1), 3),
+    ]))
+    elements.append(t_manobras)
+
+    # Observações Gerais e Assinatura
+    if obs_gerais:
+        elements.append(Spacer(1, 0.3*cm))
+        elements.append(Paragraph(f"<b>Observações Técnicas:</b> {obs_gerais}", body_style))
+
+    elements.append(Spacer(1, 1.2*cm))
+    
+    # Campo de Assinatura
+    assinatura_data = [
+        ["__________________________________________"],
+        [f"<b>{geologo}</b>"],
+        ["Geólogo Responsável"]
+    ]
+    t_ass = Table(assinatura_data, colWidths=[18*cm])
+    t_ass.setStyle(TableStyle([
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('FONTNAME', (0,1), (-1,1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0,0), (-1,-1), 8),
+    ]))
+    elements.append(KeepTogether(t_ass))
+
+    doc.build(elements)
+    buffer.seek(0)
+    return buffer
 
 # --- APLICAÇÃO PRINCIPAL ---
 st.title("📋 Boletim Digital de Sondagem Mineral")
@@ -200,7 +331,7 @@ with col_furo1:
 with col_furo2:
     diametro = st.selectbox("Diâmetro", ['HQ (63.5mm)', 'NQ (47.6mm)', 'BQ (36.5mm)', 'RC (Circ. Reversa)', 'Outro'])
 
-# --- PARÂMETROS GEOGRÁFICOS E DATAS (Escopo Principal) ---
+# --- PARÂMETROS GEOGRÁFICOS E DATAS ---
 col_geo1, col_geo2, col_geo3, col_geo4 = st.columns(4)
 
 with col_geo1:
@@ -225,7 +356,6 @@ with col_geo3:
     azimute = st.number_input("Azimute (°)", value=0.0, format="%.1f")
 
 with col_geo4:
-    # Definidas no escopo principal para ficarem visíveis no Excel/PDF
     data_inicio = st.date_input("Data de Início", value=datetime.now())
     data_fim = st.date_input("Data de Término", value=datetime.now())
 
@@ -657,10 +787,12 @@ if st.session_state['manobras']:
             use_container_width=True
         )
 
+    # --- EXPORTAÇÃO PDF CORRIGIDA ---
     with col_exp2:
+        buffer_pdf = gerar_pdf(df_manobras, img_perfil_bytes, obs_gerais_furo)
         st.download_button(
             label="📄 Exportar Relatório em PDF",
-            data=buffer_xls,
+            data=buffer_pdf,
             file_name=f"boletim_sondagem_{furo_id}.pdf",
             mime="application/pdf",
             use_container_width=True
