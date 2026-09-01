@@ -463,41 +463,79 @@ if st.session_state['manobras']:
 
     st.dataframe(df_manobras.drop(columns=['Foto']), use_container_width=True, hide_index=True)
 
-   # --- ESTILIZAÇÃO CSS: DASHBOARD ILUMINADO (DARK NEON / GLASS) ---
+ # --- ESTILIZAÇÃO CSS: TEMA SUAVE & ELEGANTE (LIGHT SLATE) ---
 st.markdown("""
     <style>
-    /* Fundo da aplicação e containers com brilho */
+    /* Fundo da aplicação em azul/cinza clarinho e suave */
     .stApp {
-        background-color: #0F172A;
+        background-color: #F8FAFC !important;
     }
     
-    /* Cards do Dashboard com efeito Glassmorphism & Brilho Neon */
-    div[data-testid="stMetric"] {
-        background: rgba(30, 41, 59, 0.7) !important;
-        border: 1px solid rgba(56, 189, 248, 0.3) !important;
+    /* Titulo Principal */
+    h1 {
+        color: #0F172A !important;
+        background: linear-gradient(135deg, #E0F2FE 0%, #F0F9FF 100%) !important;
+        padding: 20px 24px !important;
         border-radius: 16px !important;
-        padding: 16px !important;
-        box-shadow: 0 0 15px rgba(56, 189, 248, 0.2), inset 0 0 10px rgba(56, 189, 248, 0.1) !important;
-        backdrop-filter: blur(8px);
-        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        border-left: 6px solid #0EA5E9 !important;
+        box-shadow: 0 4px 20px rgba(14, 165, 233, 0.08) !important;
+        font-weight: 800 !important;
+    }
+    
+    /* Subtítulos */
+    h2, h3 {
+        color: #0284C7 !important;
+        font-weight: 700 !important;
+    }
+    
+    /* Containers e Cards Gerais com bordas e sombras suaves */
+    div[data-testid="stVerticalBlock"] > div[data-testid="stBlock"] {
+        background: #FFFFFF !important;
+        padding: 20px !important;
+        border-radius: 16px !important;
+        box-shadow: 0 4px 15px rgba(148, 163, 184, 0.08) !important;
+        border: 1px solid #E2E8F0 !important;
+    }
+
+    /* Cards do Dashboard (KPIs) com estilo pastel elegante */
+    div[data-testid="stMetric"] {
+        background: #F1F5F9 !important;
+        border: 1px solid #E2E8F0 !important;
+        border-radius: 14px !important;
+        padding: 14px 18px !important;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03) !important;
+        transition: all 0.2s ease-in-out;
     }
     
     div[data-testid="stMetric"]:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 0 25px rgba(56, 189, 248, 0.5), inset 0 0 15px rgba(56, 189, 248, 0.2) !important;
+        background: #E0F2FE !important;
+        border-color: #38BDF8 !important;
+        transform: translateY(-2px);
     }
 
-    /* Rótulos e Valores dos KPIs Iluminados */
+    /* Rótulos e Valores dos KPIs */
     div[data-testid="stMetricLabel"] > label {
-        color: #94A3B8 !important;
-        font-size: 0.9rem !important;
+        color: #64748B !important;
+        font-size: 0.85rem !important;
         font-weight: 600 !important;
     }
     
     div[data-testid="stMetricValue"] > div {
-        color: #38BDF8 !important;
-        text-shadow: 0 0 10px rgba(56, 189, 248, 0.6);
+        color: #0369A1 !important;
         font-weight: 800 !important;
+    }
+
+    /* Inputs de texto e seletores mais integrados */
+    .stTextInput input, .stSelectbox select, .stNumberInput input {
+        background-color: #F8FAFC !important;
+        border: 1px solid #CBD5E1 !important;
+        color: #1E293B !important;
+        border-radius: 8px !important;
+    }
+    
+    .stTextInput input:focus, .stSelectbox select:focus, .stNumberInput input:focus {
+        border-color: #0EA5E9 !important;
+        box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.2) !important;
     }
     </style>
 """, unsafe_allow_html=True)
