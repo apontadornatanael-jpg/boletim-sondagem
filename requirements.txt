@@ -9,3 +9,4 @@ Pillow
 streamlit-drawable-canvas
 streamlit-javascript
 streamlit-geolocator
+requests
