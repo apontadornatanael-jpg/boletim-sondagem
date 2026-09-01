@@ -472,7 +472,7 @@ if st.session_state['manobras']:
 
     col_exp1, col_exp2 = st.columns(2)
 
-    # --- EXPORTAÇÃO EXCEL CORRIGIDA ---
+    # --- EXPORTAÇÃO EXCEL ---
     with col_exp1:
         buffer_xls = io.BytesIO()
         wb = openpyxl.Workbook()
@@ -754,142 +754,144 @@ if st.session_state['manobras']:
         abnt_titulo_doc = ParagraphStyle('ABNTTituloDoc', parent=styles['Heading1'], fontName='Times-Bold', fontSize=13, leading=15, alignment=1, spaceAfter=4)
         abnt_sub_doc = ParagraphStyle('ABNTSubDoc', parent=styles['Normal'], fontName='Times-Roman', fontSize=10, leading=12, alignment=1, spaceAfter=15)
         abnt_sec = ParagraphStyle('ABNTSec', parent=styles['Heading2'], fontName='Times-Bold', fontSize=11, leading=13, spaceBefore=10, spaceAfter=6)
-        abnt_text = ParagraphStyle('ABNTText', parent=styles['Normal'], fontName='Times-Roman', fontSize=8.5, leading=11)
-        abnt_text_bold = ParagraphStyle('ABNTTextBold', parent=styles['Normal'], fontName='Times-Bold', fontSize=8.5, leading=11)
-        abnt_th = ParagraphStyle('ABNTTH', parent=styles['Normal'], fontName='Times-Bold', fontSize=8, leading=9, alignment=1)
-        abnt_td = ParagraphStyle('ABNTTD', parent=styles['Normal'], fontName='Times-Roman', fontSize=8, leading=10, alignment=1)
+        abnt_body = ParagraphStyle('ABNTBody', parent=styles['Normal'], fontName='Times-Roman', fontSize=9, leading=11)
+        abnt_body_bold = ParagraphStyle('ABNTBodyBold', parent=styles['Normal'], fontName='Times-Bold', fontSize=9, leading=11)
+        abnt_table_header = ParagraphStyle('ABNTTableHeader', parent=styles['Normal'], fontName='Times-Bold', fontSize=8, leading=10, alignment=1, textColor=colors.whitesmoke)
+        abnt_table_cell = ParagraphStyle('ABNTTableCell', parent=styles['Normal'], fontName='Times-Roman', fontSize=8, leading=10, alignment=1)
 
-        # Header
+        # Cabeçalho da Empresa
         if img_logo_pil:
             img_logo_pdf_buf = io.BytesIO()
             img_logo_pil.save(img_logo_pdf_buf, format='PNG')
             img_logo_pdf_buf.seek(0)
-            rl_logo = RLImage(img_logo_pdf_buf, width=4.0*cm, height=1.5*cm)
-            
-            header_table = Table([[rl_logo, Paragraph(f"<b>{empresa.upper()}</b><br/>RELATÓRIO TÉCNICO DE SONDAGEM GEOLÓGICA", abnt_titulo_doc)]], colWidths=[4.5*cm, 11.5*cm])
-            header_table.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'MIDDLE'), ('ALIGN', (0,0), (0,0), 'LEFT')]))
-            elements.append(header_table)
-            elements.append(Spacer(1, 10))
-        else:
-            elements.append(Paragraph(f"<b>{empresa.upper()}</b>", abnt_titulo_doc))
-            elements.append(Paragraph(f"RELATÓRIO TÉCNICO DE SONDAGEM GEOLÓGICA — FURO <b>{furo_id}</b>", abnt_sub_doc))
+            rl_logo = RLImage(img_logo_pdf_buf, width=3.5*cm, height=1.5*cm)
+            rl_logo.hAlign = 'CENTER'
+            elements.append(rl_logo)
+            elements.append(Spacer(1, 0.3*cm))
 
-        # Dados do Furo
-        elements.append(Paragraph("<b>1. DADOS DE GESTÃO E LOCALIZAÇÃO DO FURO</b>", abnt_sec))
-        dados_furo_table = [
-            [Paragraph("<b>Projeto:</b>", abnt_text), Paragraph(projeto, abnt_text), Paragraph("<b>Coordenador:</b>", abnt_text), Paragraph(coordenador, abnt_text)],
-            [Paragraph("<b>ID do Furo:</b>", abnt_text), Paragraph(furo_id, abnt_text_bold), Paragraph("<b>Supervisor:</b>", abnt_text), Paragraph(supervisor, abnt_text)],
-            [Paragraph("<b>Diâmetro:</b>", abnt_text), Paragraph(diametro, abnt_text), Paragraph("<b>Geólogo Resp.:</b>", abnt_text), Paragraph(geologo, abnt_text)],
-            [Paragraph("<b>Início / Fim:</b>", abnt_text), Paragraph(f"{data_inicio} a {data_fim}", abnt_text), Paragraph("<b>Sondador:</b>", abnt_text), Paragraph(sondador, abnt_text)],
-            [Paragraph("<b>Incl./Azimute:</b>", abnt_text), Paragraph(f"{inclinacao}° / {azimute}°", abnt_text), Paragraph("<b>Datum:</b>", abnt_text), Paragraph(datum, abnt_text)]
+        elements.append(Paragraph(empresa.upper(), abnt_titulo_doc))
+        elements.append(Paragraph(f"RELATÓRIO TÉCNICO DE SONDAGEM GEOLÓGICA — FURO {furo_id}", abnt_sub_doc))
+
+        # 1. Dados Gerais e Geográficos
+        elements.append(Paragraph("1. DADOS DE GESTÃO E LOCALIZAÇÃO DO FURO", abnt_sec))
+        
+        dados_gerais_pdf = [
+            [Paragraph("<b>Projeto:</b>", abnt_body), Paragraph(projeto, abnt_body), Paragraph("<b>Coordenador:</b>", abnt_body), Paragraph(coordenador, abnt_body)],
+            [Paragraph("<b>ID do Furo:</b>", abnt_body), Paragraph(furo_id, abnt_body), Paragraph("<b>Supervisor:</b>", abnt_body), Paragraph(supervisor, abnt_body)],
+            [Paragraph("<b>Diâmetro:</b>", abnt_body), Paragraph(diametro, abnt_body), Paragraph("<b>Geólogo Resp.:</b>", abnt_body), Paragraph(geologo, abnt_body)],
+            [Paragraph("<b>Incl./Azimute:</b>", abnt_body), Paragraph(f"{inclinacao}° / {azimute}°", abnt_body), Paragraph("<b>Sondador:</b>", abnt_body), Paragraph(sondador, abnt_body)],
+            [Paragraph("<b>Latitude:</b>", abnt_body), Paragraph(f"{lat_furo:.6f}", abnt_body), Paragraph("<b>Data Início:</b>", abnt_body), Paragraph(str(data_inicio), abnt_body)],
+            [Paragraph("<b>Longitude:</b>", abnt_body), Paragraph(f"{lon_furo:.6f}", abnt_body), Paragraph("<b>Data Término:</b>", abnt_body), Paragraph(str(data_fim), abnt_body)],
+            [Paragraph("<b>Datum:</b>", abnt_body), Paragraph(datum, abnt_body), Paragraph("", abnt_body), Paragraph("", abnt_body)]
         ]
-        t_dados = Table(dados_furo_table, colWidths=[3.0*cm, 5.0*cm, 3.0*cm, 5.0*cm])
+        
+        t_dados = Table(dados_gerais_pdf, colWidths=[3.2*cm, 4.8*cm, 3.2*cm, 4.8*cm])
         t_dados.setStyle(TableStyle([
             ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
+            ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#F8FAFC')),
             ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 4),
-            ('TOPPADDING', (0,0), (-1,-1), 4),
+            ('PADDING', (0,0), (-1,-1), 3),
         ]))
         elements.append(t_dados)
-        elements.append(Spacer(1, 12))
+        elements.append(Spacer(1, 0.4*cm))
 
-        # Tabela de Manobras
-        elements.append(Paragraph("<b>2. REGISTRO DE MANOBRAS E PARÂMETROS GEOTÉCNICOS</b>", abnt_sec))
-        headers_pdf = ["Mnb", "De-Até (m)", "Av. (m)", "Rec. (m)", "Rec %", "RQD %", "Caixa", "Litologia", "Alteração"]
-        table_data = [[Paragraph(f"<b>{h}</b>", abnt_th) for h in headers_pdf]]
+        # Mapa de Satélite Esri em alta resolução
+        mapa_sat_buf = obter_mapa_satelite_esri_alta_res(lat_furo, lon_furo)
+        if mapa_sat_buf:
+            elements.append(Paragraph("<b>Localização Geográfica por Satélite:</b>", abnt_body_bold))
+            elements.append(Spacer(1, 0.15*cm))
+            rl_mapa = RLImage(mapa_sat_buf, width=16*cm, height=7*cm)
+            rl_mapa.hAlign = 'CENTER'
+            elements.append(rl_mapa)
+            elements.append(Spacer(1, 0.4*cm))
+
+        # 2. Tabela de Manobras
+        elements.append(Paragraph("2. REGISTRO DE MANOBRAS E PARÂMETROS GEOTÉCNICOS", abnt_sec))
+        
+        headers_pdf = ["Nº", "De (m)", "Para (m)", "Avanço", "Rec (m)", "Rec (%)", "RQD (m)", "RQD (%)", "Litologia"]
+        table_data_pdf = [[Paragraph(h, abnt_table_header) for h in headers_pdf]]
 
         for m in st.session_state['manobras']:
-            row = [
-                Paragraph(str(m['Manobra']), abnt_td),
-                Paragraph(f"{m['De (m)']:.2f} - {m['Para (m)']:.2f}", abnt_td),
-                Paragraph(f"{m['Avanço (m)']:.2f}", abnt_td),
-                Paragraph(f"{m['Rec. (m)']:.2f}", abnt_td),
-                Paragraph(f"{m['Rec (%)']:.1f}%", abnt_td),
-                Paragraph(f"{m['RQD (%)']:.1f}%", abnt_td),
-                Paragraph(str(m['Nº Caixa']), abnt_td),
-                Paragraph(m['Litologia'], abnt_td),
-                Paragraph(m['Alteração'], abnt_td),
-            ]
-            table_data.append(row)
+            table_data_pdf.append([
+                Paragraph(str(m['Manobra']), abnt_table_cell),
+                Paragraph(f"{m['De (m)']:.2f}", abnt_table_cell),
+                Paragraph(f"{m['Para (m)']:.2f}", abnt_table_cell),
+                Paragraph(f"{m['Avanço (m)']:.2f}", abnt_table_cell),
+                Paragraph(f"{m['Rec. (m)']:.2f}", abnt_table_cell),
+                Paragraph(f"{m['Rec (%)']:.1f}%", abnt_table_cell),
+                Paragraph(f"{m['RQD (m)']:.2f}", abnt_table_cell),
+                Paragraph(f"{m['RQD (%)']:.1f}%", abnt_table_cell),
+                Paragraph(m['Litologia'], abnt_table_cell)
+            ])
 
-        t_manobras = Table(table_data, colWidths=[1.0*cm, 2.5*cm, 1.5*cm, 1.5*cm, 1.5*cm, 1.5*cm, 1.2*cm, 2.8*cm, 2.5*cm])
+        t_manobras = Table(table_data_pdf, colWidths=[1.0*cm, 1.8*cm, 1.8*cm, 1.8*cm, 1.8*cm, 1.8*cm, 1.8*cm, 1.8*cm, 3.4*cm])
         t_manobras.setStyle(TableStyle([
-            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#F1F5F9')),
-            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
-            ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#0369A1')),
+            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#94A3B8')),
             ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 3),
-            ('TOPPADDING', (0,0), (-1,-1), 3),
+            ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#F8FAFC')]),
+            ('PADDING', (0,0), (-1,-1), 2),
         ]))
         elements.append(t_manobras)
-        elements.append(Spacer(1, 12))
+        elements.append(Spacer(1, 0.5*cm))
 
-        # Perfil Litológico no PDF
-        elements.append(Paragraph("<b>3. PERFIL LITOLÓGICO E GRÁFICOS GEOTÉCNICOS</b>", abnt_sec))
-        rl_perfil = RLImage(img_perfil_buf, width=16.0*cm, height=6.5*cm)
+        # 3. Perfil Litológico
+        elements.append(Paragraph("3. PERFIL LITOLÓGICO E GRÁFICOS GEOTÉCNICOS", abnt_sec))
+        rl_perfil = RLImage(img_perfil_buf, width=16*cm, height=6.5*cm)
+        rl_perfil.hAlign = 'CENTER'
         elements.append(rl_perfil)
-        elements.append(Spacer(1, 12))
+        elements.append(Spacer(1, 0.5*cm))
 
-        # Registro Fotográfico no PDF
+        # 4. Fotos das Manobras
         if has_photos:
-            elements.append(Paragraph("<b>4. REGISTRO FOTOGRÁFICO DAS CAIXAS / TESTEMUNHOS</b>", abnt_sec))
-            fotos_rows = []
-            row_curr = []
+            elements.append(Paragraph("4. REGISTRO FOTOGRÁFICO DE CAIXAS DE TESTEMUNHO", abnt_sec))
             for m in st.session_state['manobras']:
                 if m.get('Foto') is not None:
                     try:
                         img_foto = m['Foto'].copy()
-                        img_buf = io.BytesIO()
-                        img_foto.save(img_buf, format='PNG')
-                        img_buf.seek(0)
+                        foto_buf_pdf = io.BytesIO()
+                        img_foto.save(foto_buf_pdf, format='PNG')
+                        foto_buf_pdf.seek(0)
                         
-                        rl_f = RLImage(img_buf, width=7.5*cm, height=4.5*cm)
-                        cap_text = Paragraph(f"<b>Manobra {m['Manobra']}</b> ({m['De (m)']}m - {m['Para (m)']}m)<br/>Caixa {m['Nº Caixa']} | {m['Litologia']}", abnt_td)
+                        rl_foto = RLImage(foto_buf_pdf, width=14*cm, height=7*cm)
+                        rl_foto.hAlign = 'CENTER'
                         
-                        cell_content = [rl_f, Spacer(1, 2), cap_text]
-                        row_curr.append(cell_content)
+                        legenda_foto = Paragraph(f"<b>Foto - Manobra {m['Manobra']}</b> (De {m['De (m)']}m a {m['Para (m)']}m) | Caixa Nº {m['Nº Caixa']} | Litologia: {m['Litologia']}", abnt_body)
                         
-                        if len(row_curr) == 2:
-                            fotos_rows.append(row_curr)
-                            row_curr = []
+                        elements.append(KeepTogether([legenda_foto, Spacer(1, 0.15*cm), rl_foto, Spacer(1, 0.4*cm)]))
                     except Exception as e:
                         pass
-            if row_curr:
-                if len(row_curr) == 1:
-                    row_curr.append("")
-                fotos_rows.append(row_curr)
 
-            if fotos_rows:
-                t_fotos = Table(fotos_rows, colWidths=[8.0*cm, 8.0*cm])
-                t_fotos.setStyle(TableStyle([
-                    ('VALIGN', (0,0), (-1,-1), 'TOP'),
-                    ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-                    ('BOTTOMPADDING', (0,0), (-1,-1), 6),
-                ]))
-                elements.append(t_fotos)
-                elements.append(Spacer(1, 12))
+        # 5. Observações Gerais
+        sec_num_pdf = "5" if has_photos else "4"
+        elements.append(Paragraph(f"{sec_num_pdf}. OBSERVAÇÕES TÉCNICAS E NOTAS DE CAMPO", abnt_sec))
+        texto_obs = obs_gerais_furo if obs_gerais_furo else "Nenhuma observação complementar."
+        elements.append(Paragraph(texto_obs, abnt_body))
+        elements.append(Spacer(1, 0.8*cm))
 
-        # Observações Gerais no PDF
-        sec_pdf_obs = "5" if has_photos else "4"
-        elements.append(Paragraph(f"<b>{sec_pdf_obs}. OBSERVAÇÕES TÉCNICAS E NOTAS DE CAMPO</b>", abnt_sec))
-        txt_obs = obs_gerais_furo if obs_gerais_furo else "Nenhuma observação complementar."
-        elements.append(Paragraph(txt_obs, abnt_text))
-        elements.append(Spacer(1, 20))
+        # 6. Assinatura Técnica
+        sec_num_val_pdf = "6" if has_photos else "5"
+        elements.append(Paragraph(f"{sec_num_val_pdf}. VALIDAÇÃO TÉCNICA E ASSINATURA", abnt_sec))
+        elements.append(Spacer(1, 1.2*cm))
 
-        # Assinatura
-        sec_pdf_ass = "6" if has_photos else "5"
-        elements.append(Paragraph(f"<b>{sec_pdf_ass}. VALIDAÇÃO TÉCNICA</b>", abnt_sec))
-        elements.append(Spacer(1, 15))
-        ass_table = Table([[Paragraph("_________________________________________<br/><b>" + geologo + "</b><br/>Geólogo Responsável", abnt_td)]], colWidths=[16.0*cm])
-        ass_table.setStyle(TableStyle([('ALIGN', (0,0), (-1,-1), 'CENTER')]))
-        elements.append(KeepTogether([ass_table]))
+        assinatura_data = [
+            [Paragraph("____________________________________________", abnt_body), Paragraph("____________________________________________", abnt_body)],
+            [Paragraph(f"<b>{geologo}</b><br/>Geólogo Responsável", abnt_body), Paragraph(f"<b>{coordenador}</b><br/>Coordenador do Projeto", abnt_body)]
+        ]
+        t_ass = Table(assinatura_data, colWidths=[8.0*cm, 8.0*cm])
+        t_ass.setStyle(TableStyle([
+            ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+            ('VALIGN', (0,0), (-1,-1), 'TOP'),
+        ]))
+        elements.append(KeepTogether([t_ass]))
 
+        # Construção do Documento PDF
         doc.build(elements, canvasmaker=NumberedCanvas)
-        
+
         st.download_button(
-            label="📄 Baixar Relatório PDF (ABNT)",
+            label="📄 Baixar Relatório PDF ABNT (.pdf)",
             data=pdf_buf.getvalue(),
-            file_name=f"Relatorio_{furo_id}.pdf",
+            file_name=f"Relatorio_ABNT_{furo_id}.pdf",
             mime="application/pdf",
             use_container_width=True
         )
