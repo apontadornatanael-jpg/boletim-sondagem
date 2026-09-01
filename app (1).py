@@ -622,7 +622,7 @@ if st.session_state['manobras']:
         ws[f'A{curr_row}'].fill = fill_sec
 
         curr_row += 1
-        img_perfil_buf.seek(0)  # CORREÇÃO: Reset do ponteiro antes da leitura do OpenPyXL
+        img_perfil_buf.seek(0)
         xl_perfil = OpenpyxlImage(img_perfil_buf)
         xl_perfil.width = 650
         xl_perfil.height = 270
@@ -750,17 +750,58 @@ if st.session_state['manobras']:
         elements.append(Paragraph(f"BOLETIM TÉCNICO DE SONDAGEM GEOLÓGICA - FURO {furo_id}", abnt_sub_doc))
 
         # Adicionar Imagem do Perfil ao ReportLab
-        elements.append(Paragraph("PERFIL LITOLÓGICO E GEOTÉCNICO", abnt_sec))
+        elements.append(Paragraph("1. PERFIL LITOLÓGICO E GEOTÉCNICO", abnt_sec))
         
-        # --- AQUI ESTAVA O ERRO: CORREÇÃO APLICADA ---
-        img_perfil_buf.seek(0)  # Força o ponteiro ir para o início antes de ser lido pelo RLImage
-        rl_perfil = RLImage(img_perfil_buf, width=16*cm, height=6.5*cm)
-        elements.append(rl_perfil)
+        img_perfil_buf.seek(0)
+        elements.append(RLImage(img_perfil_buf, width=16*cm, height=6.5*cm))
+        elements.append(Spacer(1, 10))
 
+        # Tabela de Manobras
+        elements.append(Paragraph("2. REGISTRO DE MANOBRAS", abnt_sec))
+        
+        dados_tabela = [["M", "De (m)", "Para (m)", "Rec (m)", "Rec (%)", "RQD (%)", "Litologia"]]
+        for m in st.session_state['manobras']:
+            dados_tabela.append([
+                str(m['Manobra']),
+                f"{m['De (m)']:.2f}",
+                f"{m['Para (m)']:.2f}",
+                f"{m['Rec. (m)']:.2f}",
+                f"{m['Rec (%)']:.1f}%",
+                f"{m['RQD (%)']:.1f}%",
+                m['Litologia']
+            ])
+        
+        t_manobras = Table(dados_tabela, colWidths=[1*cm, 2.2*cm, 2.2*cm, 2.2*cm, 2.2*cm, 2.2*cm, 4*cm])
+        t_manobras.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0369A1')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Times-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 8),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 5),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ]))
+        elements.append(t_manobras)
+        elements.append(Spacer(1, 15))
+
+        # Observações
+        elements.append(Paragraph("3. OBSERVAÇÕES TÉCNICAS E NOTAS DE CAMPO", abnt_sec))
+        txt_obs = obs_gerais_furo if obs_gerais_furo else "Nenhuma observação complementar registrada."
+        elements.append(Paragraph(txt_obs, abnt_body))
+        elements.append(Spacer(1, 25))
+
+        # Validação / Assinatura
+        elements.append(Paragraph("4. VALIDAÇÃO TÉCNICA", abnt_sec))
+        elements.append(Spacer(1, 20))
+        elements.append(Paragraph("_________________________________________", abnt_body))
+        elements.append(Paragraph(f"<b>{geologo}</b><br/>Geólogo Responsável", abnt_body))
+
+        # Build PDF
         doc.build(elements, canvasmaker=NumberedCanvas)
+        pdf_buf.seek(0)
 
         st.download_button(
-            label="📄 Baixar Relatório PDF (.pdf)",
+            label="📄 Baixar Relatório PDF (ABNT)",
             data=pdf_buf.getvalue(),
             file_name=f"Boletim_{furo_id}.pdf",
             mime="application/pdf",
