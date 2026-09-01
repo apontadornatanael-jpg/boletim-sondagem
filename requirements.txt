@@ -8,3 +8,4 @@ reportlab
 Pillow
 streamlit-drawable-canvas
 streamlit-javascript
+streamlit-geolocator
