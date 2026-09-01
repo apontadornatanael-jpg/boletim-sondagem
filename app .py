@@ -200,18 +200,39 @@ with col_furo1:
 with col_furo2:
     diametro = st.selectbox("Diâmetro", ['HQ (63.5mm)', 'NQ (47.6mm)', 'BQ (36.5mm)', 'RC (Circ. Reversa)', 'Outro'])
 
-with st.expander("🌐 Coordenadas GPS e Mapa do Furo", expanded=True):
+# --- PARÂMETROS GEOGRÁFICOS E DATAS (Escopo Principal) ---
+col_geo1, col_geo2, col_geo3, col_geo4 = st.columns(4)
+
+with col_geo1:
     lat_padrao = -6.515831
     lon_padrao = -36.344525
-
     if 'lat_gps' not in st.session_state:
         st.session_state['lat_gps'] = lat_padrao
     if 'lon_gps' not in st.session_state:
         st.session_state['lon_gps'] = lon_padrao
 
+    lat_furo = st.number_input("Latitude", value=st.session_state['lat_gps'], format="%.6f", key="input_lat")
+    lon_furo = st.number_input("Longitude", value=st.session_state['lon_gps'], format="%.6f", key="input_lon")
+    st.session_state['lat_gps'] = lat_furo
+    st.session_state['lon_gps'] = lon_furo
+
+with col_geo2:
+    datum = st.text_input("Datum", value="SIRGAS 2000")
+    cota_z = st.number_input("Elevação Z (m)", value=0.0, step=0.5)
+
+with col_geo3:
+    inclinacao = st.number_input("Inclinação (°)", value=-90.0, format="%.1f")
+    azimute = st.number_input("Azimute (°)", value=0.0, format="%.1f")
+
+with col_geo4:
+    # Definidas no escopo principal para ficarem visíveis no Excel/PDF
+    data_inicio = st.date_input("Data de Início", value=datetime.now())
+    data_fim = st.date_input("Data de Término", value=datetime.now())
+
+# --- EXPANDER DO MAPA E GPS ---
+with st.expander("🌐 Capturar GPS Automático e Ver Mapa", expanded=False):
     st.markdown("#### 🎯 Captura Automática de Localização")
     
-    # Captura GPS via navegador usando JS Eval (Estável)
     loc = get_geolocation()
     if loc and 'coords' in loc:
         nova_lat = round(loc['coords']['latitude'], 6)
@@ -223,12 +244,20 @@ with st.expander("🌐 Coordenadas GPS e Mapa do Furo", expanded=True):
             st.success("✅ Coordenadas capturadas com sucesso!")
             st.rerun()
 
-    col_geo1, col_geo2, col_geo3, col_geo4 = st.columns(4)
-    with col_geo1:
-        lat_furo = st.number_input("Latitude", value=st.session_state['lat_gps'], format="%.6f", key="input_lat")
-        lon_furo = st.number_input("Longitude", value=st.session_state['lon_gps'], format="%.6f", key="input_lon")
-        st.session_state['lat_gps'] = lat_furo
-        st.session_state['lon_gps'] = lon_furo
+    m = folium.Map(location=[st.session_state['lat_gps'], st.session_state['lon_gps']], zoom_start=18, tiles=None)
+    folium.TileLayer(
+        tiles='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        attr='Esri World Imagery', name='Satélite (Esri)', overlay=False
+    ).add_to(m)
+
+    folium.Marker(
+        [st.session_state['lat_gps'], st.session_state['lon_gps']], 
+        popup=f"Furo: {furo_id}", 
+        tooltip="Sua Localização Atual",
+        icon=folium.Icon(color='red', icon='info-sign')
+    ).add_to(m)
+
+    st_folium(m, width="100%", height=350, key="mapa_gps")
 
 # --- SEÇÃO 2: REGISTRO DE MANOBRAS ---
 st.header("2. Registro de Manobras e Fotos do Testemunho")
