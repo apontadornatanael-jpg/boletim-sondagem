@@ -10,3 +10,4 @@ streamlit-drawable-canvas
 streamlit-javascript
 streamlit-geolocator
 requests
+streamlit-js-eval
