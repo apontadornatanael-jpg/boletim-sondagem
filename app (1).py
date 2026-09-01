@@ -200,6 +200,9 @@ with col_furo2:
     diametro = st.selectbox("Diâmetro", ['HQ (63.5mm)', 'NQ (47.6mm)', 'BQ (36.5mm)', 'RC (Circ. Reversa)', 'Outro'])
 
 with st.expander("🌐 Coordenadas GPS e Mapa do Furo", expanded=True):
+   from streamlit_js_eval import get_geolocation
+
+with st.expander("🌐 Coordenadas GPS e Mapa do Furo", expanded=True):
     lat_padrao = -6.515831
     lon_padrao = -36.344525
 
@@ -210,37 +213,13 @@ with st.expander("🌐 Coordenadas GPS e Mapa do Furo", expanded=True):
 
     col_btn_gps, _ = st.columns([1, 2])
     with col_btn_gps:
-        capturar_gps = st.button("🎯 Centralizar no Meu GPS", type="primary", use_container_width=True)
-
-    if capturar_gps:
-        st.components.v1.html("""
-            <script>
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    function(position) {
-                        const lat = position.coords.latitude.toFixed(6);
-                        const lon = position.coords.longitude.toFixed(6);
-                        const urlParams = new URLSearchParams(window.parent.location.search);
-                        urlParams.set('lat', lat);
-                        urlParams.set('lon', lon);
-                        window.parent.location.search = urlParams.toString();
-                    },
-                    function(error) {
-                        alert("Não foi possível obter a localização. Verifique as permissões de GPS.");
-                    },
-                    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-                );
-            }
-            </script>
-        """, height=0)
-
-    params = st.query_params
-    if 'lat' in params and 'lon' in params:
-        try:
-            st.session_state['lat_gps'] = float(params['lat'])
-            st.session_state['lon_gps'] = float(params['lon'])
-        except ValueError:
-            pass
+        # Captura as coordenadas de forma nativa do navegador via JS sem violar o iframe
+        loc = get_geolocation()
+        
+        if loc and 'coords' in loc:
+            st.session_state['lat_gps'] = round(loc['coords']['latitude'], 6)
+            st.session_state['lon_gps'] = round(loc['coords']['longitude'], 6)
+            st.success("🎯 Coordenadas atualizadas via GPS!")
 
     col_geo1, col_geo2, col_geo3, col_geo4 = st.columns(4)
     with col_geo1:
@@ -272,8 +251,6 @@ with st.expander("🌐 Coordenadas GPS e Mapa do Furo", expanded=True):
     ).add_to(m)
 
     st_folium(m, width="100%", height=350, key="mapa_gps")
-
-st.markdown("---")
 
 # --- SEÇÃO 2: REGISTRO DE MANOBRAS ---
 st.header("2. Registro de Manobras e Fotos do Testemunho")
