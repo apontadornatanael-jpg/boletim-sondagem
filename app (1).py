@@ -229,7 +229,6 @@ with col_furo2:
     diametro = st.selectbox("Diâmetro", ['HQ (63.5mm)', 'NQ (47.6mm)', 'BQ (36.5mm)', 'RC (Circ. Reversa)', 'Outro'])
 
 with st.expander("🌐 Coordenadas GPS e Mapa do Furo", expanded=True):
-    # Valores padrão iniciais caso a geolocalização seja negada ou indisponível
     lat_padrao = -6.515831
     lon_padrao = -36.344525
 
@@ -238,33 +237,36 @@ with st.expander("🌐 Coordenadas GPS e Mapa do Furo", expanded=True):
     if 'lon_gps' not in st.session_state:
         st.session_state['lon_gps'] = lon_padrao
 
-    # Componente JS invisível que captura o GPS real do dispositivo via HTML5
-    st.components.v1.html("""
-        <script>
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(
-                function(position) {
-                    const lat = position.coords.latitude;
-                    const lon = position.coords.longitude;
-                    const urlParams = new URLSearchParams(window.parent.location.search);
-                    
-                    // Atualiza a URL com a posição atual se for diferente da gravada
-                    if (urlParams.get('lat') !== lat.toFixed(6) || urlParams.get('lon') !== lon.toFixed(6)) {
-                        urlParams.set('lat', lat.toFixed(6));
-                        urlParams.set('lon', lon.toFixed(6));
-                        window.parent.location.search = urlParams.toString();
-                    }
-                },
-                function(error) {
-                    console.log("Geolocalização não autorizada ou indisponível.");
-                },
-                { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-            );
-        }
-        </script>
-    """, height=0)
+    # Botão para disparar a busca da localização atual pelo GPS
+    col_btn_gps, _ = st.columns([1, 2])
+    with col_btn_gps:
+        capturar_gps = st.button("🎯 Centralizar no Meu GPS", type="primary", use_container_width=True)
 
-    # Lê os parâmetros vindos do GPS na URL
+    # Executa o JS de geolocalização se o botão for clicado ou se os parâmetros da URL mudarem
+    if capturar_gps:
+        st.components.v1.html("""
+            <script>
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    function(position) {
+                        const lat = position.coords.latitude.toFixed(6);
+                        const lon = position.coords.longitude.toFixed(6);
+                        const urlParams = new URLSearchParams(window.parent.location.search);
+                        urlParams.set('lat', lat);
+                        urlParams.set('lon', lon);
+                        window.parent.location.search = urlParams.toString();
+                    },
+                    function(error) {
+                        alert("Não foi possível obter a localização. Verifique as permissões de GPS do navegador.");
+                    },
+                    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+                );
+            } else {
+                alert("Geolocalização não é suportada por este navegador.");
+            }
+            </script>
+        """, height=0)
+
     params = st.query_params
     if 'lat' in params and 'lon' in params:
         try:
@@ -273,14 +275,15 @@ with st.expander("🌐 Coordenadas GPS e Mapa do Furo", expanded=True):
         except ValueError:
             pass
 
-    # Exibição dos dados obtidos automaticamente (com opção de ajuste manual se necessário)
     col_geo1, col_geo2, col_geo3, col_geo4 = st.columns(4)
     with col_geo1:
-        lat_furo = st.number_input("Latitude (GPS Auto)", value=st.session_state['lat_gps'], format="%.6f")
-        lon_furo = st.number_input("Longitude (GPS Auto)", value=st.session_state['lon_gps'], format="%.6f")
+        lat_furo = st.number_input("Latitude", value=st.session_state['lat_gps'], format="%.6f")
+        lon_furo = st.number_input("Longitude", value=st.session_state['lon_gps'], format="%.6f")
     with col_geo2:
         datum = st.text_input("Datum", value="SIRGAS 2000")
-        cota_z = st.number_input("Elevação / Cota Z (m)", value=0.0, step=0.5)
+        utm_e = lat_furo 
+        utm_n = lon_furo
+        cota_z = 0.0
     with col_geo3:
         inclinacao = st.number_input("Inclinação (°)", value=-90.0, format="%.1f")
         azimute = st.number_input("Azimute (°)", value=0.0, format="%.1f")
@@ -290,27 +293,24 @@ with st.expander("🌐 Coordenadas GPS e Mapa do Furo", expanded=True):
 
     st.markdown("---")
     
-    # Renderiza o mapa centralizado exatamente no ponto capturado
+    # Monta o mapa Folium centralizado na coordenada obtida
     m = folium.Map(location=[lat_furo, lon_furo], zoom_start=18, tiles=None)
     folium.TileLayer(
         tiles='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
         attr='Esri World Imagery', name='Satélite (Esri)', overlay=False
     ).add_to(m)
-    
-    # Marcador posicionando o alfinete no local exato do furo
+
+    # Alfinete/Marcador no ponto do GPS
     folium.Marker(
         [lat_furo, lon_furo], 
-        popup=f"Furo: {furo_id}<br>Lat: {lat_furo:.6f}<br>Lon: {lon_furo:.6f}", 
-        tooltip=f"Local do Furo {furo_id}",
+        popup=f"Furo: {furo_id}", 
+        tooltip="Sua Localização Atual",
         icon=folium.Icon(color='red', icon='info-sign')
     ).add_to(m)
-    
-    st_folium(m, width="100%", height=350)
-st.header("2. Registro de Manobras e Fotos do Testemunho")
 
-prox_de = st.session_state['manobras'][-1]['Para (m)'] if st.session_state['manobras'] else 0.0
-prox_para = round(prox_de + 1.5, 2)
-rec_total_ant = st.session_state['manobras'][-1]['Rec. Total (m)'] if st.session_state['manobras'] else 0.0
+    st_folium(m, width="100%", height=350, key="mapa_gps")
+
+st.markdown("---")
 
 # --- Peça de Corte e Revestimento ---
 st.subheader("🛠️ Peça de Corte e Revestimento")
